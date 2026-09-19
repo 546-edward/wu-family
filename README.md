@@ -96,7 +96,8 @@ npm start            # 需要 Node 常驻运行
 |---|---|
 | `/` | 家族简介、堂号、始祖、字辈诗、大事记时间线、最新公告 |
 | `/genealogy` | 递归渲染的世系树，节点可展开收起，点击查看成员详情 |
-| `/announcements` | 公告列表，置顶优先，其余按发布时间倒序 |
+| `/announcements` | 公告列表（摘要 + 置顶优先倒序） |
+| `/announcements/[id]` | 公告详情：全文 + 上下篇导航 |
 | `/gallery` | 相册分组展示，点击图片查看大图（原生 `<dialog>`） |
 
 ### 权限模型
@@ -430,9 +431,10 @@ WuFamily/
     │   ├── layout.tsx          前台全局布局（导航 + 页脚 + 主题色注入）
     │   ├── globals.css         主题令牌、中文排版、底色、世系树连线
     │   ├── page.tsx            首页（动态）
-    │   ├── genealogy/page.tsx  世系树（静态）
-    │   ├── announcements/page.tsx  公告（动态）
-    │   ├── gallery/page.tsx    相册（静态）
+    │   ├── genealogy/page.tsx  世系树（动态）
+    │   ├── announcements/page.tsx      公告列表（摘要，动态）
+    │   ├── announcements/[id]/page.tsx 公告详情（全文，动态）
+    │   ├── gallery/page.tsx    相册（动态）
     │   └── admin/              管理后台
     │       ├── layout.tsx      后台外观（标题 + 导航 + 退出）
     │       ├── page.tsx        概览

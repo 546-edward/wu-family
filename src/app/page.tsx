@@ -102,7 +102,7 @@ export default function HomePage() {
                 </span>
               )}
               <Link
-                href="/announcements"
+                href={`/announcements/${encodeURIComponent(a.id)}`}
                 className="flex-1 text-[15px] hover:text-brand-primary"
               >
                 {a.title}

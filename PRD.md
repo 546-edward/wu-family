@@ -366,11 +366,24 @@ export function getMilestones(): Milestone[]
 - **去重**：同一成员不可重复渲染（成员在各代中位置唯一，嵌套结构天然保证）
 - **视觉**：连线用 `family.theme.ink`，节点卡片用 `family.theme.paper`
 
-### 6.3 公告 `/announcements`
+### 6.3 公告
+
+**列表页 `/announcements`**
 
 - 置顶公告（`isPinned: true`）排在最前，其余按 `publishedAt` 倒序
-- 列表项显示标题、作者、发布日期
-- 内容全文展开（第一版不做详情页跳转）
+- 每条显示标题、作者、发布日期与**正文摘要**（前 140 字，超出加省略号），
+  用 `line-clamp-3` 限制最多三行
+- 标题与「阅读全文 →」均可点击，进入 `/announcements/[id]` 查看全文
+
+**详情页 `/announcements/[id]`**
+
+- 展示公告全文，保留原有换行
+- 顶部返回列表，底部提供同列表顺序的**上一条 / 下一条**导航
+- 标题与描述写入页面 `<title>` 与 `<meta description>`，便于分享
+- id 不存在时返回 404
+
+列表只给摘要、全文放详情页，避免列表页被长文撞得很长；
+首页「最新公告」的三条也直接链接到各自详情页。
 
 ### 6.4 相册 `/gallery`
 

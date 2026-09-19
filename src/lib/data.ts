@@ -6,7 +6,7 @@ import type {
   Member,
   Milestone,
 } from '@/types'
-import { listAnnouncements } from '@/lib/queries'
+import { listAnnouncements, getAnnouncement as queryAnnouncement } from '@/lib/queries'
 import {
   getAlbums as getStaticAlbums,
   getFamilyConfig as getStaticFamilyConfig,
@@ -45,6 +45,14 @@ export function getMemberTree(): Member {
  */
 export function getAnnouncements(): Announcement[] {
   return listAnnouncements()
+}
+
+/**
+ * 取单条公告详情；不存在返回 null（页面据此返回 404）。
+ * 供 `/announcements/[id]` 详情页使用。
+ */
+export function getAnnouncement(id: string): Announcement | null {
+  return queryAnnouncement(id)
 }
 
 /** 相册列表 */
