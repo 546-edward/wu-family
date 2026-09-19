@@ -92,6 +92,7 @@ export const family = {
     primary: '#8B2E2E',       // 朱红
     ink: '#2B2B2B',           // 墨黑
     paper: '#F5F0E6',         // 米黄
+    accent: '#B8860B',        // 赭金（分隔线、角饰、印章点缀）
   },
 }
 ```
@@ -104,7 +105,7 @@ export const family = {
 - 页脚版权信息 → `family.name`
 - 页面 `<title>` 与 `<meta description>` → `family.name` / `family.description`
 - 首页家族简介、堂号、始祖段落 → `family.*`
-- 全站主题色 → `family.theme`
+- 全站主题色 → `family.theme`（含义、墨色、纸色、点缀金）
 
 ### 3.3 换家族的操作成本
 
@@ -262,6 +263,10 @@ export function getMilestones(): Milestone[]
 4. **字辈诗** — `family.generationPoem`，居中排版
 5. **大事记** — `Milestone[]` 时间线，竖向排列
 6. **最新公告** — 取 `getAnnouncements()` 前 3 条，附「查看全部」入口
+
+**视觉基调**：宣纸米黄底 + 回纹暗格 + 四角朱红晕染，内容置于半透明宣纸面板上；
+分隔线用金—朱红—金渐变，堂号与「置顶」标记用朱红印章式标签。
+实现方式见 README 的「国风底色与喜庆装饰」一节。
 
 ### 6.2 世系树 `/genealogy`
 

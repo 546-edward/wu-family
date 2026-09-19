@@ -22,6 +22,7 @@ export default function GalleryPage() {
           共 {albums.length} 组、{totalPhotos} 张图片。点击图片查看大图。
         </p>
       </header>
+      <hr className="rule-festive -mt-4" />
 
       <PhotoGrid albums={albums} />
     </div>

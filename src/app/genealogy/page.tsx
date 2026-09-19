@@ -55,6 +55,7 @@ export default function GenealogyPage() {
           点击节点查看详情，点击节点右侧 +/− 展开或收起子代。
         </p>
       </header>
+      <hr className="rule-festive -mt-2" />
 
       <div className="flex flex-wrap items-center gap-3">
         <button
@@ -77,7 +78,7 @@ export default function GenealogyPage() {
         {/* 树：横向可能超出，允许局部滚动，避免撑破页面 */}
         <section
           aria-label="家族世系树"
-          className="overflow-x-auto rounded-sm border border-brand-primary/20 bg-white/30 p-6"
+          className="card-cn overflow-x-auto rounded-sm p-6"
         >
           <ul className="flex list-none flex-col items-center">
             <MemberNode

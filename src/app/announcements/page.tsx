@@ -23,6 +23,7 @@ export default function AnnouncementsPage() {
           共 {announcements.length} 条，置顶公告优先展示。
         </p>
       </header>
+      <hr className="rule-festive -mt-4" />
 
       {announcements.length === 0 ? (
         <p className="text-brand-ink/50">暂无公告。</p>
@@ -32,15 +33,13 @@ export default function AnnouncementsPage() {
             <li key={a.id}>
               <article
                 className={
-                  'rounded-sm border bg-white/40 p-6 md:p-7 ' +
-                  (a.isPinned
-                    ? 'border-brand-primary/45 shadow-sm'
-                    : 'border-brand-primary/20')
+                  'card-cn card-cn-hover rounded-sm p-6 md:p-7 ' +
+                  (a.isPinned ? 'border-brand-primary/45 shadow-sm' : '')
                 }
               >
                 <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                   {a.isPinned && (
-                    <span className="rounded-sm bg-brand-primary px-2 py-0.5 text-xs text-brand-paper">
+                    <span className="seal-tag rounded-sm px-2 py-0.5 text-xs">
                       置顶
                     </span>
                   )}
@@ -56,8 +55,11 @@ export default function AnnouncementsPage() {
                   </time>
                 </p>
 
-                <div className="whitespace-pre-wrap-cn mt-4 border-t border-brand-primary/15 pt-4 text-[15px] leading-8 text-brand-ink/80">
-                  {a.content}
+                <div className="mt-4 border-t border-brand-accent/25 pt-4">
+                  <hr className="rule-festive mb-4" />
+                  <div className="whitespace-pre-wrap-cn text-[15px] leading-8 text-brand-ink/80">
+                    {a.content}
+                  </div>
                 </div>
               </article>
             </li>

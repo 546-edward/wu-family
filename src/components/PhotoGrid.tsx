@@ -34,8 +34,7 @@ export default function PhotoGrid({ albums }: { albums: Album[] }) {
     <>
       <div className="space-y-14">
         {albums.map((album) => (
-          <section key={album.id}>
-            <header className="mb-4 border-b border-brand-primary/20 pb-3">
+          <section key={album.id}>            <header className="mb-4 border-b border-brand-accent/30 pb-3">
               <h2 className="font-title text-2xl tracking-[0.15em] text-brand-primary">
                 {album.title}
               </h2>
@@ -53,7 +52,7 @@ export default function PhotoGrid({ albums }: { albums: Album[] }) {
                   <button
                     type="button"
                     onClick={() => setActive(photo)}
-                    className="group block w-full overflow-hidden rounded-sm border border-brand-primary/25 bg-white/40 transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                    className="card-cn card-cn-hover group block w-full overflow-hidden rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                   >
                     <span className="block aspect-[3/2] overflow-hidden bg-brand-paper">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -85,7 +84,7 @@ export default function PhotoGrid({ albums }: { albums: Album[] }) {
           // 点击遮罩区域关闭（点击内容本身不关闭）
           if (e.target === e.currentTarget) setActive(null)
         }}
-        className="m-auto max-h-[92vh] w-auto max-w-[92vw] rounded-sm border border-brand-primary/30 bg-brand-paper p-3 backdrop:bg-black/70 open:block"
+        className="m-auto max-h-[92vh] w-auto max-w-[92vw] rounded-sm border border-brand-accent/50 bg-brand-paper p-3 backdrop:bg-black/70 open:block"
       >
         {active && (
           <figure className="flex max-h-[86vh] flex-col items-center">
@@ -100,7 +99,7 @@ export default function PhotoGrid({ albums }: { albums: Album[] }) {
               <button
                 type="button"
                 onClick={() => setActive(null)}
-                className="rounded-sm border border-brand-primary/40 px-2.5 py-1 text-xs text-brand-primary transition-colors hover:bg-brand-primary hover:text-brand-paper"
+                className="rounded-sm border border-brand-accent/50 px-2.5 py-1 text-xs text-brand-primary transition-colors hover:bg-brand-primary hover:text-brand-paper"
               >
                 关闭
               </button>

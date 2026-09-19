@@ -27,8 +27,9 @@ export const family: FamilyConfig = {
     email: '待补充',
   },
   theme: {
-    primary: '#8B2E2E', // 朱红
-    ink: '#2B2B2B', // 墨黑
-    paper: '#F5F0E6', // 米黄
+    primary: '#8B2E2E', // 朱红：标题、强调、喜庆主调
+    ink: '#2B2B2B', // 墨黑：正文与世系树连线
+    paper: '#F5F0E6', // 米黄：宣纸底色
+    accent: '#B8860B', // 赭金：分隔线、角饰、印章点缀
   },
 }

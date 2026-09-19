@@ -9,6 +9,7 @@
   --color-brand-primary: var(--theme-primary);
   --color-brand-ink: var(--theme-ink);
   --color-brand-paper: var(--theme-paper);
+  --color-brand-accent: var(--theme-accent);
 
   --font-serif-cn: 'Songti SC', 'STSong', 'SimSun', 'Noto Serif CJK SC',
     'Source Han Serif SC', 'Source Han Serif CN', serif;
@@ -21,16 +22,134 @@
   --theme-primary: #8b2e2e;
   --theme-ink: #2b2b2b;
   --theme-paper: #f5f0e6;
+  --theme-accent: #b8860b;
 }
 
 html {
   scroll-behavior: smooth;
 }
 
+/*
+ * 国风底色。
+ *
+ * 不使用任何图片资源，纯 CSS 多层叠加：
+ * 1. 纸色基底层：宣纸的米黄基调
+ * 2. 纸纤维纹理：极细斜向条纹，模拟宣纸纤维走向
+ * 3. 回纹暗格：回字纹（万字不到头）重复图案，取自内联 SVG
+ * 4. 角部晕染：四角朱红淡染 + 中央提亮，形成「装裱」感
+ *
+ * 不增加任何 HTTP 请求，静态导出与离线打开均正常。
+ */
 body {
   font-family: var(--font-sans-cn);
   line-height: 1.8;
   -webkit-font-smoothing: antialiased;
+  color: var(--theme-ink);
+  background-color: var(--theme-paper);
+  background-image:
+    /* 3. 回纹暗格（非常淡，仅作肌理） */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%232B2B2B' stroke-opacity='0.055' stroke-width='1.1'%3E%3Cpath d='M0 8h64v64H8V24h40v32H24V40h16'/%3E%3Cpath d='M80 8H64'/%3E%3C/g%3E%3C/svg%3E"),
+    /* 2. 纸纤维纹理 */
+      repeating-linear-gradient(
+        92deg,
+        rgba(43, 43, 43, 0.02) 0px,
+        rgba(43, 43, 43, 0.02) 1px,
+        transparent 1px,
+        transparent 5px
+      ),
+    repeating-linear-gradient(
+      -2deg,
+      rgba(184, 134, 11, 0.022) 0px,
+      rgba(184, 134, 11, 0.022) 1px,
+      transparent 1px,
+      transparent 7px
+    ),
+    /* 4. 四角朱红晕染 + 中央提亮 */
+      radial-gradient(
+        ellipse 55% 40% at 0% 0%,
+        color-mix(in srgb, var(--theme-primary) 14%, transparent),
+        transparent 70%
+      ),
+    radial-gradient(
+      ellipse 55% 40% at 100% 0%,
+      color-mix(in srgb, var(--theme-primary) 14%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 60% 45% at 0% 100%,
+      color-mix(in srgb, var(--theme-primary) 10%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 60% 45% at 100% 100%,
+      color-mix(in srgb, var(--theme-primary) 10%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 85% 65% at 50% 42%,
+      rgba(255, 255, 255, 0.55),
+      transparent 78%
+    );
+  background-attachment: fixed;
+  background-repeat: repeat, repeat, repeat, no-repeat, no-repeat, no-repeat,
+    no-repeat, no-repeat;
+}
+
+/*
+ * 页面内容区：置于一层半透明宣纸面上，
+ * 让底色纹理从边缘透出，同时保证正文可读性。
+ */
+.paper-panel {
+  background: color-mix(in srgb, var(--theme-paper) 80%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-accent) 24%, transparent),
+    0 1px 0 rgba(255, 255, 255, 0.5) inset;
+}
+
+/* 中式喜庆分隔线：金—朱红—金 渐变细线 */
+.rule-festive {
+  height: 3px;
+  border: 0;
+  background-image: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in srgb, var(--theme-accent) 70%, transparent) 12%,
+    color-mix(in srgb, var(--theme-primary) 80%, transparent) 50%,
+    color-mix(in srgb, var(--theme-accent) 70%, transparent) 88%,
+    transparent
+  );
+}
+
+/* 朱红印章式标签 */
+.seal-tag {
+  font-family: var(--font-serif-cn);
+  background: var(--theme-primary);
+  color: var(--theme-paper);
+  letter-spacing: 0.15em;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+/* 卡片：淡金描边 + 轻微纸感 */
+.card-cn {
+  background: color-mix(in srgb, #ffffff 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--theme-accent) 32%, transparent);
+  box-shadow: 0 1px 2px rgba(43, 43, 43, 0.04);
+}
+
+/* 卡片悬停：金边加深 */
+.card-cn-hover {
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.card-cn-hover:hover {
+  border-color: color-mix(in srgb, var(--theme-primary) 45%, transparent);
+  box-shadow: 0 4px 14px rgba(43, 43, 43, 0.08);
+}
+
+/* 无障碍：尊重系统「减少动态效果」设置 */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 /* 标题统一使用宋体系，营造传统质感 */

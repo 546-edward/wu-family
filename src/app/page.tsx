@@ -14,16 +14,25 @@ export default function HomePage() {
   return (
     <div className="space-y-16 md:space-y-20">
       {/* 1. 首屏 */}
-      <section className="border-y-2 border-brand-primary/70 py-12 text-center md:py-16">
+      <section className="relative border-y-2 border-brand-primary/70 py-12 text-center md:py-16">
+        {/* 四角金色角饰，营造装裱感 */}
+        <Corner className="left-0 top-0" />
+        <Corner className="right-0 top-0 rotate-90" />
+        <Corner className="bottom-0 right-0 rotate-180" />
+        <Corner className="bottom-0 left-0 -rotate-90" />
+
         <p className="font-title text-sm tracking-[0.5em] text-brand-ink/55">
           {family.surname}氏
         </p>
         <h1 className="font-title mt-4 text-4xl font-semibold tracking-[0.15em] text-brand-primary md:text-6xl">
           {family.name}
         </h1>
-        <p className="mt-5 text-sm tracking-[0.3em] text-brand-ink/65 md:text-base">
+
+        {/* 朱红印章式堂号 */}
+        <p className="seal-tag mt-6 inline-block px-3 py-1 text-sm">
           堂号 {family.hallName}
         </p>
+
         <p className="mx-auto mt-6 max-w-2xl text-[15px] leading-8 text-brand-ink/75 md:text-base">
           {family.description.length > 90
             ? `${family.description.slice(0, 90)}……`
@@ -51,7 +60,7 @@ export default function HomePage() {
 
       {/* 4. 字辈诗 */}
       <Section title="字辈诗">
-        <blockquote className="border-x-2 border-brand-primary/40 px-6 py-8 text-center md:px-10">
+        <blockquote className="card-cn border-x-2 border-y-0 border-brand-primary/40 px-6 py-8 text-center md:px-10">
           <p className="font-title whitespace-pre-wrap-cn text-xl leading-loose tracking-[0.25em] text-brand-primary md:text-2xl">
             {family.generationPoem}
           </p>
@@ -115,21 +124,41 @@ function Section({
 }) {
   return (
     <section>
-      <div className="mb-6 flex items-baseline justify-between gap-4 border-b border-brand-primary/20 pb-3">
+      <div className="mb-6 flex items-baseline justify-between gap-4 pb-3">
         <h2 className="font-title text-2xl tracking-[0.2em] text-brand-primary md:text-[28px]">
           {title}
         </h2>
         {action}
       </div>
+      {/* 金—朱红—金 装饰分隔线，替代单调细线 */}
+      <hr className="rule-festive mb-6" />
       {children}
     </section>
+  )
+}
+
+/** 首屏四角的金色回纹角饰 */
+function Corner({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 40 40"
+      className={`pointer-events-none absolute h-8 w-8 text-brand-accent/70 md:h-10 md:w-10 ${className}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+    >
+      <path d="M1 14V1h13" />
+      <path d="M6 14V6h8" />
+      <circle cx="14" cy="14" r="1.6" fill="currentColor" stroke="none" />
+    </svg>
   )
 }
 
 /** 键值信息卡 */
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-sm border border-brand-primary/25 bg-white/40 px-5 py-4">
+    <div className="card-cn card-cn-hover rounded-sm px-5 py-4">
       <p className="text-xs tracking-widest text-brand-ink/50">{label}</p>
       <p className="font-title mt-1.5 text-lg tracking-wider text-brand-ink">
         {value}

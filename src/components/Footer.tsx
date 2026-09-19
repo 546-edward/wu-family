@@ -9,16 +9,15 @@ export default function Footer() {
   const year = new Date().getFullYear()
 
   return (
-    <footer className="mt-8 border-t border-brand-primary/25 bg-brand-paper">
+    <footer className="mt-8 border-t border-brand-accent/35">
+      <hr className="rule-festive" />
       <div className="mx-auto w-full max-w-6xl px-5 py-8 text-sm text-brand-ink/70 md:px-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="font-title text-lg tracking-widest text-brand-primary">
               {family.name}
             </p>
-            <p className="mt-1 text-brand-ink/50">
-              堂号：{family.hallName}
-            </p>
+            <p className="mt-1 text-brand-ink/50">堂号：{family.hallName}</p>
           </div>
 
           <address className="not-italic leading-7">
@@ -33,7 +32,7 @@ export default function Footer() {
           </address>
         </div>
 
-        <p className="mt-6 border-t border-brand-primary/15 pt-4 text-xs text-brand-ink/45">
+        <p className="mt-6 border-t border-brand-accent/20 pt-4 text-xs text-brand-ink/45">
           © {year} {family.name}
         </p>
       </div>

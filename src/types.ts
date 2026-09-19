@@ -41,6 +41,8 @@ export interface FamilyConfig {
     ink: string
     /** 纸色（背景） */
     paper: string
+    /** 点缀色（金），用于喜庆装饰与分隔线 */
+    accent: string
   }
 }
 

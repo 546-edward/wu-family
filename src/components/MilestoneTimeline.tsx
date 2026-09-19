@@ -14,7 +14,7 @@ export default function MilestoneTimeline({
   }
 
   return (
-    <ol className="relative ml-1 border-l border-brand-primary/30 pl-6 md:pl-8">
+    <ol className="relative ml-1 border-l border-brand-accent/45 pl-6 md:pl-8">
       {milestones.map((m) => (
         <li key={`${m.year}-${m.title}`} className="relative pb-8 last:pb-0">
           {/* 轴上的节点圆点 */}

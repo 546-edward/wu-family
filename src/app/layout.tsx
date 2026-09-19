@@ -27,17 +27,19 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body
-        className="flex min-h-screen flex-col bg-brand-paper text-brand-ink"
+        className="flex min-h-screen flex-col text-brand-ink"
         style={
           {
             '--theme-primary': family.theme.primary,
             '--theme-ink': family.theme.ink,
             '--theme-paper': family.theme.paper,
+            '--theme-accent': family.theme.accent,
           } as React.CSSProperties
         }
       >
         <Nav />
-        <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-10 md:px-8 md:py-14">
+        {/* 内容区置于半透明宣纸面板上，两侧露出国风底色纹理 */}
+        <main className="paper-panel mx-auto my-6 w-[min(100%-1.5rem,76rem)] flex-1 px-5 py-10 md:my-10 md:px-10 md:py-14">
           {children}
         </main>
         <Footer />
