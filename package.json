@@ -1,0 +1,28 @@
+{
+  "name": "wu-family",
+  "version": "1.0.0",
+  "private": true,
+  "description": "通用家族展示站模板，首期实例：伍氏家族",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "preview": "next build && npx --yes serve@latest out",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "26.6.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.5",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3"
+  }
+}
