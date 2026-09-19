@@ -24,20 +24,20 @@ export default function Nav() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-brand-accent/35 bg-brand-paper/92 backdrop-blur">
-      {/* 顶部喜庆红金渐变条 */}
+      {/* 顶部分隔细条 */}
       <div
         aria-hidden
-        className="h-1 w-full bg-gradient-to-r from-transparent via-brand-primary to-transparent"
+        className="h-1 w-full bg-gradient-to-r from-transparent via-brand-accent to-transparent"
       />
-      <nav className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-4 md:px-8">
+      <nav className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-5 md:px-8">
         <Link
           href="/"
-          className="font-title text-2xl font-semibold tracking-widest text-brand-primary transition-opacity hover:opacity-80"
+          className="font-title text-3xl font-semibold tracking-widest text-brand-primary transition-opacity hover:opacity-80 md:text-4xl"
         >
           {family.shortName}
         </Link>
 
-        <ul className="flex flex-wrap items-center gap-x-1 gap-y-1 text-[15px]">
+        <ul className="flex flex-wrap items-center gap-x-2 gap-y-1 text-lg md:text-xl">
           {links.map(({ href, label }) => {
             const active = isActive(href)
             return (
@@ -46,10 +46,10 @@ export default function Nav() {
                   href={href}
                   aria-current={active ? 'page' : undefined}
                   className={
-                    'relative inline-block px-3 py-1.5 transition-colors ' +
+                    'relative inline-block px-3.5 py-1.5 transition-colors md:px-4 ' +
                     (active
-                      ? 'text-brand-primary after:absolute after:inset-x-3 after:-bottom-0.5 after:h-0.5 after:bg-brand-accent'
-                      : 'text-brand-ink/70 hover:text-brand-primary')
+                      ? 'text-brand-primary after:absolute after:inset-x-3.5 after:-bottom-0.5 after:h-0.5 after:bg-brand-accent md:after:inset-x-4'
+                      : 'text-brand-ink/75 hover:text-brand-primary')
                   }
                 >
                   {label}
