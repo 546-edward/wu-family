@@ -9,6 +9,9 @@
 /dist/
 /build
 
+# Next.js 自动生成（内容随 dev/build 切换而变，不应入库）
+/next-env.d.ts
+
 # 生产环境
 /.vercel
 *.tsbuildinfo
