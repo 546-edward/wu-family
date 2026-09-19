@@ -20,6 +20,26 @@ const COOKIE_NAME = 'wu_admin'
 /** 会话有效期：7 天 */
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 7
 
+/**
+ * 是否给 Cookie 加 Secure 标记。
+ *
+ * Secure 表示「仅通过 HTTPS 发送」。浏览器会**拒绝**在普通 HTTP 下
+ * 保存带 Secure 的 Cookie（localhost 例外，被当作可信来源）。
+ *
+ * 因此若家里用 `http://192.168.x.x:3000` 这种方式访问，
+ * 默认开启会导致登录后 Cookie 根本存不下、一直循环跳登录页。
+ *
+ * 策略：默认跟随 NODE_ENV（生产开、开发生关）；
+ * 若确实以 HTTP 局域网方式部署，显式设 COOKIE_SECURE=false 关闭。
+ * 一旦配上 HTTPS，就应改回 true（或不设，用默认值）。
+ */
+function useSecureCookie(): boolean {
+  const flag = process.env.COOKIE_SECURE
+  if (flag === 'false') return false
+  if (flag === 'true') return true
+  return process.env.NODE_ENV === 'production'
+}
+
 function secret(): string {
   const s = process.env.SESSION_SECRET
   if (!s) {
@@ -89,7 +109,7 @@ export async function login(
   store.set(COOKIE_NAME, createToken(row.username), {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: useSecureCookie(),
     path: '/',
     maxAge: MAX_AGE_SECONDS,
   })
