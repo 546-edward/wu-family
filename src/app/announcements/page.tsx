@@ -1,14 +1,20 @@
 import type { Metadata } from 'next'
 import { getAnnouncements } from '@/lib/data'
 
+/**
+ * 公告数据来自数据库（后台可发布），因此本页必须动态渲染：
+ * 若静态预渲染，后台新发布的公告要等重新构建才会出现在前台。
+ */
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: '公告',
   description: '家族公告与通知，按发布时间倒序排列，置顶公告优先展示。',
 }
 
 /**
- * 公告页：置顶优先，其余按发布时间倒序（排序在 data.ts 完成）。
- * 第一版不做详情页跳转，内容全文展开。
+ * 公告页：置顶优先，其余按发布时间倒序（排序在 queries.ts 的 SQL 中完成）。
+ * 不做详情页跳转，内容全文展开。
  */
 export default function AnnouncementsPage() {
   const announcements = getAnnouncements()

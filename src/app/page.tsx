@@ -3,6 +3,12 @@ import { getAnnouncements, getFamilyConfig, getMilestones } from '@/lib/data'
 import MilestoneTimeline from '@/components/MilestoneTimeline'
 
 /**
+ * 首页显示「最新公告」，而公告由后台在线发布，
+ * 因此本页必须动态渲染，否则新公告不会及时出现在首页。
+ */
+export const dynamic = 'force-dynamic'
+
+/**
  * 首页：首屏 → 家族简介 → 始祖与郡望 → 字辈诗 → 大事记 → 最新公告。
  * 全部内容经 `src/lib/data.ts` 取数。
  */

@@ -1,4 +1,4 @@
-import { getFamilyConfig } from '@/lib/data'
+import { getFamilyConfig } from '@/lib/content'
 
 /**
  * 全局页脚：家族全称、联系方式、版权年份。

@@ -1,3 +1,4 @@
+import 'server-only'
 import type {
   Album,
   Announcement,
@@ -5,50 +6,53 @@ import type {
   Member,
   Milestone,
 } from '@/types'
-import { family } from '@/content/family'
-import { memberTree, milestones } from '@/content/members'
-import { announcements } from '@/content/announcements'
-import { albums } from '@/content/albums'
+import { listAnnouncements } from '@/lib/queries'
+import {
+  getAlbums as getStaticAlbums,
+  getFamilyConfig as getStaticFamilyConfig,
+  getMemberTree as getStaticMemberTree,
+  getMilestones as getStaticMilestones,
+} from '@/lib/content'
 
 /**
- * 数据出口层 —— 页面与内容之间的唯一接缝。
+ * 数据出口层 —— 页面与内容之间的唯一接缝（服务端）。
  *
- * 约束：`src/app/` 与 `src/components/` 下的文件**一律**通过本模块取数，
- * 不得直接 import `src/content/` 下的文件。
+ * 约束：页面**一律**通过本模块或 `src/lib/content.ts` 取数，
+ * 不得直接 import `src/content/` 下的文件，也不得直接写 SQL。
  *
- * V2 接入数据库时，仅需把下列函数的实现从「读数据文件」改为「查询数据库」，
- * 返回类型保持不变，所有页面代码无需修改。
+ * 演进历史：
+ * - V1：全部读 `src/content/` 下的数据文件
+ * - V2（当前）：公告改读 SQLite，可由后台在线发布；
+ *   家族身份、世系、相册、大事记仍为数据文件（低频变更，无需后台）
+ *
+ * 本模块标注 `server-only`：因为公告查询依赖 better-sqlite3，
+ * 客户端组件请改用 `src/lib/content.ts`（同样签名，纯静态数据）。
  */
 
 /** 家族身份配置 */
 export function getFamilyConfig(): FamilyConfig {
-  return family
+  return getStaticFamilyConfig()
 }
 
 /** 世系树根节点（始祖） */
 export function getMemberTree(): Member {
-  return memberTree
+  return getStaticMemberTree()
 }
 
 /**
  * 公告列表：置顶优先，其余按发布时间倒序。
- * 排序在出口层统一处理，避免各页面重复实现。
+ * 数据来自数据库（后台可增删改），排序在 SQL 层完成。
  */
 export function getAnnouncements(): Announcement[] {
-  return [...announcements].sort((a, b) => {
-    if (Boolean(a.isPinned) !== Boolean(b.isPinned)) {
-      return a.isPinned ? -1 : 1
-    }
-    return b.publishedAt.localeCompare(a.publishedAt)
-  })
+  return listAnnouncements()
 }
 
 /** 相册列表 */
 export function getAlbums(): Album[] {
-  return albums
+  return getStaticAlbums()
 }
 
 /** 大事记时间线（按年份升序） */
 export function getMilestones(): Milestone[] {
-  return [...milestones].sort((a, b) => a.year.localeCompare(b.year))
+  return getStaticMilestones()
 }

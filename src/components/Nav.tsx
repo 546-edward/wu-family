@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { getFamilyConfig } from '@/lib/data'
+import { getFamilyConfig } from '@/lib/content'
 
 const links = [
   { href: '/', label: '首页' },

@@ -100,3 +100,32 @@ export interface Milestone {
   title: string
   description?: string
 }
+
+/**
+ * Excel 上传记录（通用表格）。
+ * 不限定列含义，表头原样保存，便于展示任意表格。
+ */
+export interface Upload {
+  id: string
+  title: string
+  fileName: string
+  /** 实际存储文件名（非公开目录） */
+  storedName: string
+  sheetName: string
+  rowCount: number
+  colCount: number
+  /** 表头 */
+  columns: string[]
+  sizeBytes: number
+  uploadedAt: string
+}
+
+/** Excel 分页查询结果 */
+export interface UploadPage {
+  upload: Upload
+  rows: { rowIndex: number; cells: string[] }[]
+  page: number
+  pageSize: number
+  totalRows: number
+  totalPages: number
+}

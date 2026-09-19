@@ -21,6 +21,9 @@
 .env*.local
 .env.production
 
+# 运行时数据（SQLite 数据库与上传的 Excel 原件，禁止入库）
+/data/
+
 # 日志
 *.log
 npm-debug.log*

@@ -1,7 +1,9 @@
 # 家族管理网站（WuFamily）
 
-通用**家族展示站模板**，首期实例为伍氏家族。第一版为纯展示 MVP：
-4 个静态页面，内容全部来自项目内的数据文件，**无数据库、无接口、无鉴权**。
+通用**家族站模板**，首期实例为伍氏家族。
+
+- **前台**：4 个展示页面（首页、世系树、公告、相册）
+- **后台**：管理员登录、公告在线发布、Excel 上传与分页展示
 
 需求详见 [`PRD.md`](./PRD.md)。
 
@@ -9,16 +11,42 @@
 
 ## 快速开始
 
+### 1. 配置环境变量
+
+复制示例文件并填入自己的值：
+
+```bash
+cp .env.example .env.local
+```
+
+编辑 `.env.local`：
+
+```ini
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=换成一个你自己的强密码
+SESSION_SECRET=换成一串随机字符
+```
+
+生成随机密钥：
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+> `.env.local` 已在 `.gitignore` 中，**不会被提交**。请勿把真实密码写进代码或示例文件。
+
+### 2. 启动
+
 ```bash
 npm install
 npm run dev          # 开发模式，默认 http://localhost:3000
 ```
 
-生产构建与本地预览：
+生产环境：
 
 ```bash
-npm run build        # 构建，产物输出到 out/（全站静态）
-npm run preview      # 用静态服务器预览 out/ 目录
+npm run build
+npm start            # 需要 Node 常驻运行
 ```
 
 其他命令：
@@ -28,17 +56,41 @@ npm run preview      # 用静态服务器预览 out/ 目录
 | `npm run lint` | ESLint 检查 |
 | `npm run typecheck` | TypeScript 类型检查 |
 
+### 首次启动会发生什么
+
+会自动创建 `data/` 目录、建表并完成初始化：
+
+1. 按 `.env.local` 创建管理员账号（密码以 bcrypt 哈希存储）
+2. 若公告表为空，把 `src/content/announcements.ts` 里的现有公告导入数据库
+
+因此从旧版本升级上来，网站内容不会突然变空。
+
 ### 部署
 
-本项目配置为 `output: 'export'`，`npm run build` 后 `out/` 目录即为完整静态站点，
-可直接上传到任意静态托管（对象存储、CDN、Nginx、GitHub Pages 等），无需 Node 运行时。
+本项目**需要 Node 服务常驻**（因为后台要读写数据库），不能用纯静态托管。
+可选方式：自己的一台服务器 / VPS、Docker、或支持 Node 的 PaaS。
 
-> 若部署在子路径（如 `https://example.com/family/`），需在 `next.config.ts` 中
-> 增加 `basePath: '/family'`，并同步调整 `src/content/albums.ts` 中的图片路径前缀。
+部署到公网前请务必：
+
+- 使用强密码，并设置随机 `SESSION_SECRET`
+- 启用 HTTPS（否则登录凭据与会话 Cookie 会明文传输）
+- 确认 `data/` 目录**不可被 Web 直接访问**（它不在 `public/` 下，默认安全）
+- 定期备份 `data/wufamily.db` 与 `data/uploads/`
+
+### 数据存放位置
+
+| 路径 | 内容 |
+|---|---|
+| `data/wufamily.db` | SQLite 数据库（公告、上传记录、行数据、管理员） |
+| `data/uploads/` | 上传的 Excel 原件 |
+
+整个 `data/` 目录已加入 `.gitignore`，不会进入版本库。
 
 ---
 
 ## 页面
+
+### 前台
 
 | 路径 | 内容 |
 |---|---|
@@ -47,17 +99,86 @@ npm run preview      # 用静态服务器预览 out/ 目录
 | `/announcements` | 公告列表，置顶优先，其余按发布时间倒序 |
 | `/gallery` | 相册分组展示，点击图片查看大图（原生 `<dialog>`） |
 
+### 后台
+
+| 路径 | 内容 |
+|---|---|
+| `/admin/login` | 管理员登录 |
+| `/admin` | 概览（公告与表格统计、快捷入口） |
+| `/admin/announcements` | 公告列表：新建、编辑、置顶切换、删除 |
+| `/admin/announcements/new` | 新建公告 |
+| `/admin/excel` | 上传 Excel、已上传表格列表 |
+| `/admin/excel/[id]` | 表格展示：分页 + 行展开查看明细 |
+
+后台所有页面与接口均需登录，且已设置 `noindex` 不被搜索引擎收录。
+
+---
+
+## 后台使用说明
+
+### 发布公告
+
+后台 →「公告管理」→「新建公告」。必填标题、正文、署名、发布日期，
+可勾选「置顶显示」。发布后前台首页与公告页**立即生效**（无需重新构建）。
+
+署名与日期可自由填写，用于展示「谁在何时发布」。
+
+### 上传 Excel
+
+后台 →「Excel 管理」→ 选择文件 →「上传并解析」。
+
+处理规则：
+
+| 项目 | 限制 |
+|---|---|
+| 格式 | 仅 `.xlsx`（不支持 `.xls` / `.csv`） |
+| 大小 | ≤ 5MB |
+| 行数 | 最多 5000 行（超出部分截断） |
+| 列数 | 最多 60 列 |
+| 表头 | 首行作为表头；空表头以「列N」占位 |
+| 工作表 | 只取第一个工作表 |
+
+上传后进入表格页：
+
+- **分页**：每页 20 行，页码写在 URL 里（`?page=2`），刷新与分享保持位置
+- **行展开**：点某行右侧「展开」，以「字段 — 值」列出该行完整内容，便于看长文本
+
+> 说明：解析只读取单元格的文本内容，**不计算公式、不执行宏**；
+> 原文件保存在非公开目录 `data/uploads/`，不提供直接下载。
+
+### 安全提醒
+
+- 本后台没有注册与找回密码功能：改密码需修改 `.env.local` 后删除
+  `data/wufamily.db` 重新初始化（或直接改库里的 `password_hash`）
+- 登录失败会统一提示「用户名或密码错误」，不区分是账号错还是密码错
+- 会话有效期 7 天，Cookie 为 httpOnly + SameSite=Lax
+- **任何知道密码的人都能发布公告、上传文件到你的服务器**，请勿弱口令
+
 ---
 
 ## 如何维护内容
 
-第一版**不提供后台**，内容维护就是改文件再重新构建。全部内容集中在 `src/content/`：
+低频变更的内容仍是数据文件（改完重新构建生效）；公告改由后台在线管理。
 
-| 文件 | 内容 | 对应类型 |
+| 位置 | 内容 | 维护方式 |
 |---|---|---|
-| `src/content/family.ts` | 家族身份：姓氏、名称、堂号、始祖、字辈诗、简介、联系方式、主题色 | `FamilyConfig` |
-| `src/content/members.ts` | 世系数据（树形嵌套） + 大事记 | `Member` / `Milestone[]` |
-| `src/content/announcements.ts` | 公告 | `Announcement[]` |
+| `src/content/family.ts` | 家族身份：姓氏、名称、堂号、始祖、字辈诗、简介、联系方式、主题色 | 改文件 |
+| `src/content/members.ts` | 世系数据（树形嵌套） + 大事记 | 改文件 |
+| `src/content/albums.ts` | 相册 | 改文件 |
+| `public/photos/` | 相册图片 | 换文件 |
+| 公告 | — | **后台在线管理** |
+| Excel 表格 | — | **后台上传管理** |
+
+`src/content/announcements.ts` 保留作为**首次导入的数据源与内容兜底**：
+若数据库中的公告被清空，删除 `data/wufamily.db` 重启即可重新导入。
+
+字段定义见 `src/types.ts`，每个字段都有注释。
+
+### 常见编辑操作
+
+**改家族名称 / 堂号 / 简介**
+
+编辑 `src/content/family.ts`。导航栏品牌名、页脚、浏览器标题都会自动跟着变。
 | `src/content/albums.ts` | 相册 | `Album[]` |
 | `public/photos/` | 相册图片 | — |
 
@@ -195,17 +316,37 @@ theme: {
 ## 架构：为什么这样分层
 
 ```
-src/content/     数据文件（唯一允许出现家族字样的地方）
-      ↓ 只被下面这一层读取
-src/lib/data.ts  数据出口层 —— V2 接数据库的唯一接缝
-      ↓ 唯一取数入口
-src/app/         页面          src/components/  组件
+src/content/        数据文件（低频变更内容）
+src/lib/db.ts       SQLite 连接与建表
+data/               运行时数据（数据库 + 上传原件，不入库）
+      ↓
+src/lib/content.ts  静态内容出口（客户端安全，不含数据库）
+src/lib/queries.ts  数据库读写（公告、上传记录、行数据）
+src/lib/data.ts     统一取数出口（服务端，标注 server-only）
+src/lib/auth.ts     登录与会话       src/lib/guard.ts  鉴权守卫
+      ↓
+src/app/            页面           src/components/  组件
 ```
 
-**硬性约束**：页面与组件**一律**通过 `src/lib/data.ts` 取数，
-禁止直接 `import` `src/content/` 下的文件。
+**硬性约束**：页面**不得**直接 `import` `src/content/`，也不得直接写 SQL，
+一律经数据出口层取数。
 
-`src/lib/data.ts` 导出 5 个函数：
+### 两个出口模块的分工
+
+| 模块 | 包含 | 可用位置 |
+|---|---|---|
+| `src/lib/content.ts` | 家族身份、世系、相册、大事记（纯静态文件） | 服务端 + **客户端组件** |
+| `src/lib/data.ts` | 上述全部 + 公告（读数据库） | **仅服务端** |
+
+**为什么要拆成两个**：公告改读数据库后，`data.ts` 会依赖 better-sqlite3 这个原生模块。
+它无法在浏览器中运行，一旦被客户端组件（如 `Nav.tsx`）引用，构建就会失败。
+因此把纯静态部分单独放入 `content.ts` 供客户端使用，带数据库的 `data.ts` 标注
+`server-only`，误用时会直接报错而不是静默出错。
+
+设计副作用：世系树拆为服务端页面 + 客户端组件 `GenealogyTree`，
+数据由服务端取好后经 props 传入，客户端不再依赖数据层。
+
+### 数据出口签名未变
 
 ```ts
 getFamilyConfig(): FamilyConfig
@@ -215,21 +356,36 @@ getAlbums(): Album[]
 getMilestones(): Milestone[]
 ```
 
-第二版接入数据库时，**只替换这 5 个函数的内部实现**（从「读数据文件」改为「查数据库」），
-返回类型保持不变，所有页面代码零改动。
+这正是 PRD 5.3 预留的接缝：公告从「读文件」换成「查数据库」时，
+**对外签名保持不变，前台 4 个页面的取数代码零修改**。
+
+### 动态渲染的必要性
+
+首页与公告页使用 `export const dynamic = 'force-dynamic'`。
+若不这样，它们会在构建时预渲染成静态页 —— 后台新发布的公告就要等
+下一次重新构建才会出现在前台，不符合「在线发布」的预期。
+相册与世系树仍是静态预渲染（内容来自文件，不随运行时变化）。
 
 ### 为什么成员用树形嵌套
 
-`Member` 用 `children` 递归而非 `fatherId` 扁平关联：第一版无数据库，
-嵌套结构在数据文件中书写与阅读最直观，且天然表达世系，同时保证
+`Member` 用 `children` 递归而非 `fatherId` 扁平关联：
+嵌套结构在数据文件中书写与阅读最直观，天然表达世系，同时保证
 **递归渲染不会出现重复节点**（每位成员在树中只出现一次）。
 
-第二版迁移到关系型数据库时，在 `data.ts` 内部做扁平化转换，对外接口不变。
+### 鉴权设计
+
+- **签名 Cookie 会话**：`base64(payload).hmacSHA256(payload)`，密钥为 `SESSION_SECRET`；
+  校验时用 `timingSafeEqual` 比较签名
+- **两层守卫**：页面调用 `requireAuth()` 重定向；**每个 Server Action 内部也独立校验**。
+  这一点必需：Server Action 不经过 layout，不单独校验就能被未登录者直接构造请求写入数据
+- **防用户名探测**：账号不存在时也执行一次 bcrypt 比较，避免通过响应时间判断账号是否存在
+- 密码以 bcrypt 哈希存储，不存明文
 
 ### 技术栈
 
-Next.js 16（App Router，全站静态导出）、React 19、TypeScript 5、
-Tailwind CSS 4（CSS-first 配置，主题令牌见 `src/app/globals.css`）、Node.js v22。
+Next.js 16（App Router，服务端渲染）、React 19、TypeScript 5、
+Tailwind CSS 4（CSS-first 配置，主题令牌见 `src/app/globals.css`）、
+better-sqlite3（数据库）、exceljs（Excel 解析）、bcryptjs（密码哈希）、Node.js v22。
 
 ---
 
@@ -239,27 +395,45 @@ Tailwind CSS 4（CSS-first 配置，主题令牌见 `src/app/globals.css`）、N
 WuFamily/
 ├── PRD.md                      需求文档
 ├── README.md                   本文件
-├── next.config.ts              静态导出配置
+├── .env.example                环境变量示例（复制为 .env.local 使用）
+├── next.config.ts              Next.js 配置（含 Server Action 体积上限）
 ├── postcss.config.mjs          Tailwind 4 的 PostCSS 插件
 ├── eslint.config.mjs           ESLint 扁平配置
+├── data/                       运行时数据（已 gitignore，不入库）
+│   ├── wufamily.db             SQLite 数据库
+│   └── uploads/                上传的 Excel 原件（非公开）
 ├── public/photos/              相册图片
 └── src/
     ├── app/
-    │   ├── layout.tsx          全局布局（导航 + 页脚 + 主题色注入 + 元信息）
-    │   ├── globals.css         主题令牌、中文排版、世系树连线
-    │   ├── page.tsx            首页
-    │   ├── genealogy/page.tsx  世系树
-    │   ├── announcements/page.tsx
-    │   └── gallery/page.tsx
+    │   ├── layout.tsx          前台全局布局（导航 + 页脚 + 主题色注入）
+    │   ├── globals.css         主题令牌、中文排版、底色、世系树连线
+    │   ├── page.tsx            首页（动态）
+    │   ├── genealogy/page.tsx  世系树（静态）
+    │   ├── announcements/page.tsx  公告（动态）
+    │   ├── gallery/page.tsx    相册（静态）
+    │   └── admin/              管理后台
+    │       ├── layout.tsx      后台外观（标题 + 导航 + 退出）
+    │       ├── page.tsx        概览
+    │       ├── login/          登录页与 Server Action
+    │       ├── announcements/  公告增删改（actions.ts / 表单 / 列表）
+    │       └── excel/          上传、列表、分页表格展示
     ├── components/
     │   ├── Nav.tsx             导航栏
     │   ├── Footer.tsx          页脚
+    │   ├── GenealogyTree.tsx   世系树交互区（客户端）
     │   ├── MemberNode.tsx      世系树递归节点
     │   ├── MemberDetail.tsx    成员详情卡片
     │   ├── MilestoneTimeline.tsx
     │   └── PhotoGrid.tsx       相册网格与大图
     ├── content/                数据文件（唯一允许出现家族字样的地方）
-    ├── lib/data.ts             数据出口层（V2 接数据库的唯一接缝）
+    ├── lib/
+    │   ├── db.ts               SQLite 连接、建表、初始化
+    │   ├── queries.ts          数据库读写（公告 / 上传 / 行数据）
+    │   ├── content.ts          静态内容出口（客户端安全）
+    │   ├── data.ts             统一取数出口（服务端）
+    │   ├── auth.ts             登录、会话签发与校验
+    │   ├── guard.ts            requireAuth() 鉴权守卫
+    │   └── excel.ts            Excel 解析与上传校验
     └── types.ts                类型定义
 ```
 

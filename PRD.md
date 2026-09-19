@@ -3,10 +3,24 @@
 | 项目 | 内容 |
 |---|---|
 | 项目代号 | WuFamily |
-| 文档版本 | v1.0 |
+| 文档版本 | v2.0 |
 | 首期实例 | 伍氏家族 |
-| 当前阶段 | 第一版（纯展示 MVP） |
+| 当前阶段 | 第二版（静态展示 + 简易管理后台） |
 | 最后更新 | 2026-09-19 |
+
+> **版本演进说明**
+>
+> v1.0 为纯展示 MVP，明确不做数据库、登录与后台（见第 2 章原非目标表）。
+> 实际使用中产生了「管理人员需要自行发布公告、上传表格」的需求，
+> 因此 v2.0 提前实现了原属 V2 规划的部分能力：
+>
+> - 接入 SQLite，公告改为数据库存储，可在后台在线发布
+> - 新增管理员登录（单账号）
+> - 新增 Excel 上传与分页展示
+>
+> **代价**：网站不再能纯静态托管，部署时需 Node 服务常驻。
+> 第 2 章、第 4 章已相应更新。V1 预留的数据出口层接缝（5.3）
+> 发挥了预期作用 —— 公告换数据源时，前台四个页面代码零修改。
 
 ---
 
@@ -44,22 +58,40 @@
 
 ---
 
-## 2. 非目标（明确不做）
+## 2. 范围界定（v2.0 已更新）
 
-以下内容**不在第一版范围内**，以避免范围蔓延。均列入第 10 章的后续规划。
+### 2.1 v2.0 新增能力
+
+| 能力 | 实现方式 |
+|---|---|
+| 管理员登录 | 单账号，签名 Cookie 会话，密码 bcrypt 哈希存储 |
+| 公告在线发布 | SQLite 存储，后台可新建 / 编辑 / 置顶 / 删除，前台即时生效 |
+| Excel 上传与展示 | 后台：传 .xlsx → 解析为通用表格 → 分页 + 行展开展示 |
+
+### 2.2 仍不做（保持范围可控）
 
 | 不做项 | 原因 |
 |---|---|
-| 数据库 | 第一版内容是低频变更的静态资料，文件即数据源，引入数据库徒增部署复杂度 |
-| 登录与账号体系 | 第一版无写操作，无需鉴权 |
-| 管理后台 | 内容维护由开发者通过改文件完成，第一版可接受 |
+| 多账号与权限分级 | 当前为单管理员场景；`users` 表已预留，扩展时无需改表结构 |
+| 账号注册 / 找回密码 | 密码由环境变量配置，运维层面处理即可 |
+| 世系树的在线编辑 | 世系属低频变更且结构敏感，仍由改数据文件维护 |
+| 相册后台管理 | 同上；图片替换频率低 |
+| Excel 导入成员/世系 | 本次只做通用表格展示，不做字段映射与合并去重 |
 | 活动报名 | 涉及名额、审核、通知，属于独立子系统 |
 | 财务与份子钱台账 | 涉及真实资金与审批流，风险高，应单独立项 |
 | 成员名录独立页 | 信息已由世系树覆盖，避免重复 |
-| 移动端专项适配 | 桌面优先；Tailwind 自带基础响应式，窄屏可正常浏览即可，不额外投入 |
+| 移动端专项适配 | 桌面优先；Tailwind 自带基础响应式，窄屏可正常浏览即可 |
 | 小程序 | 需要独立技术栈与审核流程 |
-| 全文搜索 | 第一版数据量小，浏览器 Ctrl+F 即可满足 |
+| 全文搜索 | 数据量小，浏览器 Ctrl+F 即可满足 |
 | 评论与互动 | 需要账号体系与内容审核 |
+
+### 2.3 已付出的代价
+
+v1.0 的核心卖点之一是「纯静态、零服务器成本」。接入后台后：
+
+- 移除了 `output: 'export'`，**必须运行 Node 服务**，不能再传到静态托管
+- 需自行保障 `data/` 目录的备份与权限
+- 上线到公网需配置 HTTPS，否则密码与会话可被窃听
 
 ---
 
@@ -130,32 +162,42 @@ export const family = {
 
 | 层 | 选型 | 版本 |
 |---|---|---|
-| 框架 | Next.js（App Router） | 最新稳定版 |
-| 语言 | TypeScript | 最新稳定版 |
-| 样式 | Tailwind CSS | 最新稳定版 |
+| 框架 | Next.js（App Router，服务端渲染） | 16.3.5 |
+| 语言 | TypeScript | 5.9 |
+| 样式 | Tailwind CSS（CSS-first 配置） | 4.3 |
+| 数据库 | SQLite（better-sqlite3，同步 API） | 13 |
+| Excel 解析 | exceljs | 4.4 |
+| 密码哈希 | bcryptjs | 3 |
 | 包管理 | npm | 随 Node |
 | 运行时 | Node.js | v22（本机已验证） |
 
-**无数据库、无 API 路由、无鉴权、无状态管理库。** 全站构建为静态页面。
+无 API 路由（写操作走 Server Actions）、无状态管理库、无 ORM。
 
 ### 4.2 选型理由
 
 - **前后端一体**：单人开发维护成本最低，无需另起后端服务
-- **静态输出**：所有页面在构建时生成，可直接托管于任意静态服务或 CDN，无服务器运行成本
-- **演进平滑**：第二版接数据库时，Next.js 可原地升级为含服务端逻辑的全栈应用，不需要换框架
+- **SQLite**：单文件数据库，无需单独部署数据库服务；家族站数据量小（公告、表格），
+  且通过 `better-sqlite3` 的同步 API 避免了异步状态管理的复杂度
+- **不用 Prisma 等 ORM**：表结构简单，直接用 SQL 更透明，也少一层构建步骤
+- **Server Actions 而非 REST API**：写入逻辑与表单同文件，无需手写接口与客户端请求代码
+- **服务端渲染**：公告由后台在线发布，必须能在请求时读库，
+  因此不再使用静态导出（见 2.3）
 - **Tailwind**：中式主题配色通过配置注入，不写散落的 CSS 文件
 
 ### 4.3 演进路径
 
 ```
-第一版（当前）   数据文件 + 静态页面
-     ↓ 增加在线编辑需求
-第二版           接入 SQLite/PostgreSQL + Prisma，新增管理后台与登录
+第一版          数据文件 + 静态页面（纯展示）
+     ↓ 需要在线发布与上传
+第二版（当前）   SQLite + 管理后台 + 登录（单账号）
+     ↓ 多人维护
+第三版           多账号与权限分级（users 表已预留）
      ↓ 服务多个家族
-第三版           多租户隔离，各自独立子站
+第四版           多租户隔离，各自独立子站
 ```
 
-第二版改造的关键在于**数据出口层 `src/lib/data.ts`**（见 5.3）：页面只依赖该模块导出的函数，届时只替换该模块的内部实现为数据库查询，页面零改动。
+第二版的改造验证了 v1.0 预留接缝的价值：公告由数据文件改为数据库查询时，
+**前台四个页面的取数代码零修改**，仅新增了 `content.ts` / `queries.ts` 两个模块。
 
 ---
 
@@ -223,21 +265,51 @@ export interface Milestone {
 
 **设计说明**：成员采用**树形嵌套**（`children` 递归）而非 `fatherId` 扁平关联。第一版无数据库，嵌套结构在数据文件中书写与阅读最直观，且天然表达世系。第二版迁移到关系型数据库时，在 `data.ts` 内部做扁平化转换，对外接口不变。
 
-### 5.2 内容文件组织
+### 5.2 内容与数据存储
+
+低频变更内容仍是数据文件（改完重新构建生效）：
 
 ```
 src/content/
 ├── family.ts          家族身份配置（FamilyConfig）
 ├── members.ts         世系数据（Member 树）+ 大事记（Milestone[]）
-├── announcements.ts   公告（Announcement[]）
+├── announcements.ts   公告（**仅作为首次导入的数据源与内容兜底**）
 └── albums.ts          相册（Album[]）
 ```
 
+公告与 Excel 改由 SQLite 存储，运行时位于 `data/`（已 gitignore）：
+
+```
+data/
+├── wufamily.db        SQLite 数据库
+└── uploads/           上传的 Excel 原件（非公开目录）
+```
+
+**数据表**：
+
+| 表 | 用途 | 关键字段 |
+|---|---|---|
+| `users` | 管理员（当前单账号，已预留多账号） | `username`、`password_hash` |
+| `announcements` | 公告 | `id`、`title`、`content`、`author_name`、`published_at`、`is_pinned` |
+| `uploads` | Excel 上传记录 | `id`、`title`、`file_name`、`stored_name`、`sheet_name`、`row_count`、`col_count`、`columns`(JSON) |
+| `upload_rows` | Excel 行数据 | `upload_id`、`row_index`、`cells`(JSON) |
+
+`upload_rows` 按行存储而非整表存一个 JSON：这样分页可用 SQL 的
+`LIMIT/OFFSET` 完成，不必把整表读进内存再切片。
+
+首次启动会自动建表，并在公告表为空时导入 `announcements.ts` 的既有内容，
+保证升级后网站不会变空。
+
 ### 5.3 数据出口层
 
-文件：`src/lib/data.ts`
+因公告需查数据库，出口层拆为两个模块：
 
-页面**一律**通过以下函数取数，禁止直接 import `src/content/` 下的文件：
+| 模块 | 内容 | 可用位置 |
+|---|---|---|
+| `src/lib/content.ts` | 家族身份、世系、相册、大事记（纯静态） | 服务端 + 客户端组件 |
+| `src/lib/data.ts` | 上述全部 + 公告（读数据库） | 仅服务端（`server-only`） |
+
+两者**导出签名一致**：
 
 ```ts
 export function getFamilyConfig(): FamilyConfig
@@ -247,7 +319,22 @@ export function getAlbums(): Album[]
 export function getMilestones(): Milestone[]
 ```
 
-该模块是第一版与第二版之间的**唯一接缝**。第二版接数据库后，仅需把上述函数的实现从「读数据文件」改为「查询数据库」，返回类型保持不变，所有页面代码无需修改。
+**拆分原因**：`data.ts` 依赖 better-sqlite3 原生模块，无法在浏览器运行。
+若客户端组件（如 `Nav.tsx`）直接引用 `data.ts`，构建会将原生模块打进浏览器包而失败。
+因此纯静态部分单独放入 `content.ts` 供客户端使用。
+
+**约束**：页面不得直接 import `src/content/`，也不得直接写 SQL；
+公告的读写一律经 `src/lib/queries.ts`。
+
+### 5.4 渲染模式
+
+| 页面 | 模式 | 原因 |
+|---|---|---|
+| `/`、`/announcements` | 动态（`force-dynamic`） | 含公告，需实时反映后台发布 |
+| `/genealogy`、`/gallery` | 静态预渲染 | 内容来自文件，不随运行时变化 |
+| `/admin/*` | 动态 | 需鉴权与实时数据 |
+
+若首页与公告页不做动态渲染，后台新发布的公告要等重新构建才会出现。
 
 ---
 
@@ -294,10 +381,67 @@ export function getMilestones(): Milestone[]
 
 ### 6.5 导航与全局布局
 
-- **导航栏**：左侧品牌名（`family.shortName`），右侧 4 个页面链接；当前页高亮
+- **导航栏**：左侧品牌名（`family.shortName`），右侧 4 个页面链接；当前页高亮；
+  品牌名 36px、链接 20px（窄屏各降一级）
 - **页脚**：家族全称、联系方式（`family.contact`）、版权年份
-- **布局**：`src/app/layout.tsx` 承载导航与页脚，背景色 `family.theme.paper`
+- **布局**：`src/app/layout.tsx` 承载导航与页脚，背景色来自 `family.theme`
 - **字体**：中文衬线字体优先（标题用宋体系，正文用无衬线），营造传统质感
+
+### 6.6 管理后台 `/admin/*`
+
+后台不向前台导航暴露入口，直接访问 `/admin` 即可（未登录会跳转登录页）。
+整站设置 `noindex`，不被搜索引擎收录。
+
+| 路径 | 内容 |
+|---|---|
+| `/admin/login` | 用户名 + 密码登录 |
+| `/admin` | 概览：公告总数 / 置顶数 / 表格数 / 表格总行数，快捷入口 |
+| `/admin/announcements` | 公告列表：新建、编辑、置顶切换、删除 |
+| `/admin/announcements/new` | 新建公告表单 |
+| `/admin/announcements/[id]` | 编辑公告 |
+| `/admin/excel` | 上传表单 + 已上传表格列表 |
+| `/admin/excel/[id]` | 表格展示：分页 + 行展开 |
+
+**公告表单字段**：标题、正文、署名、发布日期、是否置顶。
+发布后前台首页与公告页立即生效（`revalidatePath` + 动态渲染）。
+
+**Excel 展示**：
+
+- 分页：每页 20 行，页码写在 URL（`?page=N`），刷新与分享保持位置；
+  分页在 SQL 层完成，不把整表加载到浏览器
+- 行展开：点行右侧「展开」，以「字段 — 值」列出该行完整内容，
+  便于查看长文本列而不必横向滚动
+
+### 6.7 鉴权
+
+- **单账号**：用户名与密码由环境变量配置，首次启动写入 `users` 表
+- **密码存储**：bcrypt 哈希，不存明文
+- **会话**：签名 Cookie（HMAC-SHA256），httpOnly + SameSite=Lax，有效期 7 天，
+  校验用 `timingSafeEqual` 比较签名
+- **两层守卫**：页面调 `requireAuth()` 重定向；**每个 Server Action 内部也独立校验**。
+  后者必需 —— Server Action 不经过 layout，不单独校验就能被未登录者直接构造请求写入数据
+- **防账号探测**：账号不存在时也执行一次 bcrypt 比较，避免通过响应时间判断账号是否存在
+- **失败提示**统一为「用户名或密码错误」，不区分账号错还是密码错
+
+### 6.8 Excel 上传限制
+
+| 项目 | 限制 |
+|---|---|
+| 格式 | 仅 `.xlsx`（不支持 `.xls` / `.csv`） |
+| 大小 | ≤ 5MB（`MAX_FILE_BYTES`） |
+| 行数 | ≤ 5000 行，超出截断（`MAX_ROWS`） |
+| 列数 | ≤ 60 列（`MAX_COLS`） |
+| 表头 | 首行；空表头以「列N」占位 |
+| 工作表 | 只取第一个 |
+
+**安全处理**：只读取单元格的文本值，**不计算公式、不执行宏**；
+原件存入非公开目录 `data/uploads/`，文件名随机生成以防覆盖与路径穿越，
+不提供直接下载。
+
+> 实现注意：Next.js 的 Server Action 请求体默认上限为 1MB，小于 5MB 的文件上限，
+> 会导致较大文件在校验前就被 413 拒绝。因此 `next.config.ts` 中已将
+> `experimental.serverActions.bodySizeLimit` 设为 `6mb`，业务上限仍由
+> `MAX_FILE_BYTES` 控制。
 
 ---
 
@@ -307,24 +451,47 @@ export function getMilestones(): Milestone[]
 WuFamily/
 ├── PRD.md                      本文档
 ├── README.md                   启动与维护说明
+├── .env.example                环境变量示例（复制为 .env.local）
 ├── .gitignore
 ├── package.json
 ├── tsconfig.json
-├── tailwind.config.ts
 ├── next.config.ts
+├── postcss.config.mjs          Tailwind 4 的 PostCSS 插件
+├── eslint.config.mjs
+├── data/                       运行时数据（已 gitignore）
+│   ├── wufamily.db             SQLite 数据库
+│   └── uploads/                Excel 原件（非公开）
 ├── public/
 │   └── photos/                 相册图片
 └── src/
     ├── app/
-    │   ├── layout.tsx          全局布局（导航 + 页脚）
+    │   ├── layout.tsx          前台全局布局（导航 + 页脚）
     │   ├── globals.css
-    │   ├── page.tsx            首页
-    │   ├── genealogy/page.tsx  世系树
-    │   ├── announcements/page.tsx
-    │   └── gallery/page.tsx
+    │   ├── page.tsx            首页（动态）
+    │   ├── genealogy/page.tsx  世系树（静态）
+    │   ├── announcements/page.tsx  公告（动态）
+    │   ├── gallery/page.tsx    相册（静态）
+    │   └── admin/
+    │       ├── layout.tsx      后台外观
+    │       ├── page.tsx        概览
+    │       ├── AdminNav.tsx / LogoutButton.tsx / actions.ts
+    │       ├── login/          登录页 + Server Action + 表单
+    │       ├── announcements/  公告管理
+    │       │   ├── page.tsx          列表
+    │       │   ├── new/page.tsx      新建
+    │       │   ├── [id]/page.tsx     编辑
+    │       │   ├── AnnouncementForm.tsx
+    │       │   └── actions.ts        增删改与置顶
+    │       └── excel/
+    │           ├── page.tsx          上传 + 列表
+    │           ├── [id]/page.tsx     分页表格页
+    │           ├── UploadForm.tsx
+    │           ├── SheetTable.tsx    表格与分页控件
+    │           └── actions.ts        上传与删除
     ├── components/
     │   ├── Nav.tsx             导航栏
     │   ├── Footer.tsx          页脚
+    │   ├── GenealogyTree.tsx   世系树交互区（客户端）
     │   ├── MemberNode.tsx      世系树递归节点
     │   ├── MemberDetail.tsx    成员详情卡片
     │   ├── MilestoneTimeline.tsx
@@ -332,10 +499,16 @@ WuFamily/
     ├── content/                数据文件（唯一允许出现家族字样的地方）
     │   ├── family.ts
     │   ├── members.ts
-    │   ├── announcements.ts
+    │   ├── announcements.ts    （仅作首次导入的种子数据）
     │   └── albums.ts
     ├── lib/
-    │   └── data.ts             数据出口层（V2 接数据库的唯一接缝）
+    │   ├── db.ts               SQLite 连接、建表、初始化
+    │   ├── queries.ts          数据库读写
+    │   ├── content.ts          静态内容出口（客户端安全）
+    │   ├── data.ts             统一取数出口（服务端）
+    │   ├── auth.ts             登录与会话
+    │   ├── guard.ts            requireAuth() 鉴权守卫
+    │   └── excel.ts            Excel 解析与上传校验
     └── types.ts
 ```
 
@@ -356,7 +529,20 @@ WuFamily/
 | 7 | 公告与相册 | `announcements/page.tsx`、`gallery/page.tsx`、`PhotoGrid.tsx` | 置顶排序正确，相册可看大图 |
 | 8 | 视觉打磨 | 中式配色与排版微调 | 主题色来自 `family.theme` |
 
-**里程碑 6 为唯一具备实现难度的部分**（递归组件），其余为静态渲染。
+**第二版（v2.0）新增里程碑**：
+
+| # | 里程碑 | 交付物 | 验收方式 |
+|---|---|---|---|
+| 9 | 底色与导航调整 | 浅蓝底色、导航字体调大 | 对比度实测达标 |
+| 10 | 数据库与鉴权 | `db.ts`、`queries.ts`、`auth.ts`、`guard.ts`、`.env.example` | 首次启动自动建表、种子公告、创建管理员；未登录访问后台一律跳登录页 |
+| 11 | 公告后台 | `admin/announcements/*` | 新建/编辑/置顶/删除均生效，前台即时可见 |
+| 12 | Excel 上传与展示 | `excel.ts`、`admin/excel/*` | 上传可解析，分页与行展开正常，非法文件被拒 |
+| 13 | 数据出口层拆分 | `content.ts` / `data.ts` 分工 | 客户端组件不再引用数据库模块，构建成功 |
+| 14 | 文档同步 | README、PRD 更新 | 版本说明与部署变更已写明 |
+
+**里程碑 11–13 为具备实现难度的部分**：难点不在页面，而在于
+「公告改为查库后，客户端组件不得把原生模块带进浏览器包」这一约束（见 5.3），
+以及「Server Action 必须独立鉴权」（见 6.7）。
 
 ---
 
@@ -411,19 +597,40 @@ style: 视觉打磨
 
 ---
 
-## 10. 后续版本规划（V2 预留）
+## 10. 后续版本规划
 
-第一版刻意预留了以下演进空间，实现时不得破坏这些接缝：
+### 10.1 v1.0 预留接缝的使用情况
 
-| 能力 | 预留方式 |
-|---|---|
-| 内容在线编辑 | `src/lib/data.ts` 为唯一数据出口，替换内部实现即可接数据库 |
-| 成员增删改 | `Member` 类型已含稳定 `id` 字段，可直接作为数据库主键 |
-| 登录与权限 | 目前无用户概念，V2 新增 `User` 表，与 `Member` 通过 `memberId` 关联 |
-| 多家族复用 | 家族身份已全部集中于 `family.ts`，V2 可按域名加载不同配置实现多租户 |
-| 活动报名 | `Announcement` 结构可扩展为 `Event`，增加报名字段 |
-| 财务台账 | 独立表，与成员通过 `memberId` 关联 |
-| 移动端优化 | 现有 Tailwind 响应式类可平滑升级，无需重写 |
+| 能力 | 预留方式 | 现状 |
+|---|---|---|
+| 内容在线编辑 | `data.ts` 为唯一数据出口 | ✅ 已用上：公告与 Excel 接入数据库，前台页面零修改 |
+| 成员增删改 | `Member` 含稳定 `id` | 未启用，`id` 仍可直接作主键 |
+| 登录与权限 | 预留 `User` 概念 | ✅ 已实现：`users` 表已建，当前单账号 |
+| 多家族复用 | 身份集中于 `family.ts` | 保持，可按域名加载不同配置 |
+| 活动报名 | `Announcement` 可扩展为 `Event` | 未实施 |
+| 财务台账 | 独立表 + `memberId` | 未实施 |
+| 移动端优化 | Tailwind 响应式类 | 基础响应式已可用，未专项投入 |
+
+### 10.2 下一步建议
+
+按性价比排序：
+
+1. **多账号与权限分级** —— `users` 表已就位，加角色字段 + 中间件即可；
+   适合多人共同维护时
+2. **世系/相册后台化** —— 把 `members.ts`、`albums.ts` 也迁入数据库，
+   沿用本次的 `content.ts` / `queries.ts` 分工模式
+3. **Excel 导入成员** —— 当前只做通用表格展示；若要导入世系，
+   需新增字段映射、校验与合并去重逻辑
+4. **操作审计** —— 记录谁在何时改了什么，多人维护时有必要
+5. **数据库备份脚本** —— 定时拷贝 `data/wufamily.db` 与 `data/uploads/`
+
+### 10.3 已知技术债
+
+- `npm audit` 报告 `exceljs` 依赖的 `uuid` 有中危漏洞。该漏洞仅在
+  向 v3/v5/v6 UUID 生成函数传入 buffer 时触发，而 exceljs 仅用 v4，
+  不存在可利用路径。待 exceljs 上游升级依赖后自动消除。
+- 登录接口未做速率限制。若部署到公网，建议在反向代理层
+  对 `/admin/login` 加限流，防暴力破解。
 
 ---
 
