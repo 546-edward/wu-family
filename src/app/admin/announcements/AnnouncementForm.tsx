@@ -156,22 +156,22 @@ export default function AnnouncementForm({
         )}
 
         {/*
-          自定义上传按钮：原生的 <input type=file> 在不同浏览器里外观不一，
-          且默认按钮文案是「选择文件」，与「添加附件」不一致，也不明显可点。
-          这里用 <label> 包裹隐藏的 input，做成一个醒目的按钮，
-          点击 label 即可唤起文件选择器（原生行为，无需 JS）。
+          自定义上传按钮。
+
+          为什么不用 `sr-only` 隐藏 input：那会把 input 裁成 1×1 像素并加
+          clip-path。Chromium 下点 label 还能唤起选择器，但 **Firefox 与部分 Safari
+          会直接忽略这个点击**，表现为「按钮点了没反应」。
+
+          这里改用「透明覆盖」方案：input 仍占据真实尺寸，只是 opacity 为 0
+          且绝对定位盖在按钮上。它是**真实可点的元素**，鼠标直接点在 input 上，
+          不依赖 label 转发，各浏览器行为一致。
         */}
-        <div className="flex flex-wrap items-center gap-3">
-          <label
-            htmlFor="attachments"
-            className="cursor-pointer rounded-sm border border-brand-primary/45 bg-brand-primary px-4 py-2 text-sm text-white transition-opacity hover:opacity-90"
+        <div className="relative inline-block">
+          <span
+            aria-hidden
+            className="rounded-sm border border-brand-primary/45 bg-brand-primary px-4 py-2 text-sm text-white"
           >
             + 添加附件
-          </label>
-          <span className="text-xs text-brand-ink/50">
-            {picked.length > 0
-              ? `已选择 ${picked.length} 个文件`
-              : '尚未选择文件'}
           </span>
 
           <input
@@ -180,10 +180,15 @@ export default function AnnouncementForm({
             type="file"
             multiple
             accept={ACCEPT_ATTR}
+            aria-label="添加附件"
             onChange={(e) => setPicked(Array.from(e.target.files ?? []))}
-            className="sr-only"
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
           />
         </div>
+
+        <span className="ml-3 align-middle text-xs text-brand-ink/50">
+          {picked.length > 0 ? `已选择 ${picked.length} 个文件` : '尚未选择文件'}
+        </span>
         <p className="mt-1.5 text-xs text-brand-ink/45">
           支持 {ALLOWED_LABEL}。图片附件在前台可直接预览，其余格式点击下载。
         </p>
