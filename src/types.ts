@@ -83,6 +83,26 @@ export interface Announcement {
   publishedAt: string
   /** 是否置顶 */
   isPinned?: boolean
+  /** 附件列表（发布时上传的文件） */
+  attachments?: Attachment[]
+}
+
+/**
+ * 公告附件。
+ * 支持文档、表格、图片等常见格式；仅存储文件，不做内容解析。
+ */
+export interface Attachment {
+  id: string
+  /** 所属公告 */
+  announcementId: string
+  /** 原始文件名（展示给用户） */
+  fileName: string
+  /** 实际存储文件名（随机生成，位于非公开目录） */
+  storedName: string
+  /** MIME 类型，用于决定图标与打开方式 */
+  mimeType: string
+  sizeBytes: number
+  uploadedAt: string
 }
 
 /** 相册 */
@@ -99,33 +119,4 @@ export interface Milestone {
   year: string
   title: string
   description?: string
-}
-
-/**
- * Excel 上传记录（通用表格）。
- * 不限定列含义，表头原样保存，便于展示任意表格。
- */
-export interface Upload {
-  id: string
-  title: string
-  fileName: string
-  /** 实际存储文件名（非公开目录） */
-  storedName: string
-  sheetName: string
-  rowCount: number
-  colCount: number
-  /** 表头 */
-  columns: string[]
-  sizeBytes: number
-  uploadedAt: string
-}
-
-/** Excel 分页查询结果 */
-export interface UploadPage {
-  upload: Upload
-  rows: { rowIndex: number; cells: string[] }[]
-  page: number
-  pageSize: number
-  totalRows: number
-  totalPages: number
 }

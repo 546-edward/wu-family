@@ -1,4 +1,4 @@
-import type { Announcement, Upload, UploadPage } from '@/types'
+import type { Announcement, Attachment } from '@/types'
 import { getDb } from '@/lib/db'
 
 /**
@@ -6,6 +6,78 @@ import { getDb } from '@/lib/db'
  * 页面（含前台展示页与后台管理页）一律经此模块访问数据，
  * 不直接写 SQL，便于统一处理排序、分页与字段映射。
  */
+
+/* --------------------------------- 公告附件 -------------------------------- */
+
+interface AttachmentRow {
+  id: string
+  announcement_id: string
+  file_name: string
+  stored_name: string
+  mime_type: string
+  size_bytes: number
+  uploaded_at: string
+}
+
+function mapAttachment(r: AttachmentRow): Attachment {
+  return {
+    id: r.id,
+    announcementId: r.announcement_id,
+    fileName: r.file_name,
+    storedName: r.stored_name,
+    mimeType: r.mime_type,
+    sizeBytes: r.size_bytes,
+    uploadedAt: r.uploaded_at,
+  }
+}
+
+const ATT_COLS = `id, announcement_id, file_name, stored_name,
+                  mime_type, size_bytes, uploaded_at`
+
+/** 取某条公告的全部附件 */
+export function listAttachments(announcementId: string): Attachment[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT ${ATT_COLS} FROM attachments
+        WHERE announcement_id = ? ORDER BY uploaded_at`
+    )
+    .all(announcementId) as AttachmentRow[]
+  return rows.map(mapAttachment)
+}
+
+/** 取单个附件（下载时校验存在性） */
+export function getAttachment(id: string): Attachment | null {
+  const row = getDb()
+    .prepare(`SELECT ${ATT_COLS} FROM attachments WHERE id = ?`)
+    .get(id) as AttachmentRow | undefined
+  return row ? mapAttachment(row) : null
+}
+
+/** 新增一条附件记录 */
+export function createAttachment(input: {
+  id: string
+  announcementId: string
+  fileName: string
+  storedName: string
+  mimeType: string
+  sizeBytes: number
+}): void {
+  getDb()
+    .prepare(
+      `INSERT INTO attachments
+         (id, announcement_id, file_name, stored_name, mime_type, size_bytes)
+       VALUES (@id, @announcementId, @fileName, @storedName, @mimeType, @sizeBytes)`
+    )
+    .run(input)
+}
+
+/** 删除单条附件，返回存储文件名以便删除磁盘原件 */
+export function deleteAttachment(id: string): string | null {
+  const att = getAttachment(id)
+  if (!att) return null
+  getDb().prepare('DELETE FROM attachments WHERE id = ?').run(id)
+  return att.storedName
+}
 
 /* ---------------------------------- 公告 ---------------------------------- */
 
@@ -18,7 +90,7 @@ interface AnnouncementRow {
   is_pinned: number
 }
 
-function mapAnnouncement(r: AnnouncementRow): Announcement {
+function mapAnnouncement(r: AnnouncementRow, attachments: Attachment[] = []): Announcement {
   return {
     id: r.id,
     title: r.title,
@@ -26,30 +98,60 @@ function mapAnnouncement(r: AnnouncementRow): Announcement {
     authorName: r.author_name,
     publishedAt: r.published_at,
     isPinned: r.is_pinned === 1,
+    attachments,
   }
 }
 
-/** 公告列表：置顶优先，其余按发布时间倒序 */
+/**
+ * 公告列表：置顶优先，其余按发布时间倒序。
+ *
+ * 附件用**一次批量查询**取回后按公告分组，避免逐条查询造成 N+1。
+ */
 export function listAnnouncements(): Announcement[] {
-  const rows = getDb()
+  const db = getDb()
+  const rows = db
     .prepare(
       `SELECT id, title, content, author_name, published_at, is_pinned
          FROM announcements
         ORDER BY is_pinned DESC, published_at DESC, created_at DESC`
     )
     .all() as AnnouncementRow[]
-  return rows.map(mapAnnouncement)
+
+  if (rows.length === 0) return []
+
+  const all = db
+    .prepare(`SELECT ${ATT_COLS} FROM attachments ORDER BY uploaded_at`)
+    .all() as AttachmentRow[]
+
+  const grouped = new Map<string, Attachment[]>()
+  for (const a of all) {
+    const list = grouped.get(a.announcement_id) ?? []
+    list.push(mapAttachment(a))
+    grouped.set(a.announcement_id, list)
+  }
+
+  return rows.map((r) => mapAnnouncement(r, grouped.get(r.id) ?? []))
 }
 
-/** 按 id 取单条公告 */
+/** 按 id 取单条公告（含附件） */
 export function getAnnouncement(id: string): Announcement | null {
-  const row = getDb()
+  const db = getDb()
+  const row = db
     .prepare(
       `SELECT id, title, content, author_name, published_at, is_pinned
          FROM announcements WHERE id = ?`
     )
     .get(id) as AnnouncementRow | undefined
-  return row ? mapAnnouncement(row) : null
+  if (!row) return null
+
+  const atts = db
+    .prepare(
+      `SELECT ${ATT_COLS} FROM attachments
+        WHERE announcement_id = ? ORDER BY uploaded_at`
+    )
+    .all(id) as AttachmentRow[]
+
+  return mapAnnouncement(row, atts.map(mapAttachment))
 }
 
 /** 新增或更新公告（后台表单提交） */
@@ -90,159 +192,16 @@ export function saveAnnouncement(input: {
   return id
 }
 
-/** 删除公告 */
-export function deleteAnnouncement(id: string): void {
-  getDb().prepare('DELETE FROM announcements WHERE id = ?').run(id)
-}
-
-/* ---------------------------------- Excel --------------------------------- */
-
-interface UploadRow {
-  id: string
-  title: string
-  file_name: string
-  stored_name: string
-  sheet_name: string
-  row_count: number
-  col_count: number
-  columns: string
-  size_bytes: number
-  uploaded_at: string
-}
-
-function mapUpload(r: UploadRow): Upload {
-  let columns: string[] = []
-  try {
-    const parsed = JSON.parse(r.columns)
-    if (Array.isArray(parsed)) columns = parsed.map(String)
-  } catch {
-    // 表头解析失败时退化为空数组，不影响其余字段展示
-  }
-  return {
-    id: r.id,
-    title: r.title,
-    fileName: r.file_name,
-    storedName: r.stored_name,
-    sheetName: r.sheet_name,
-    rowCount: r.row_count,
-    colCount: r.col_count,
-    columns,
-    sizeBytes: r.size_bytes,
-    uploadedAt: r.uploaded_at,
-  }
-}
-
-const UPLOAD_COLS = `id, title, file_name, stored_name, sheet_name,
-                     row_count, col_count, columns, size_bytes, uploaded_at`
-
-/** 全部分上传记录（按上传时间倒序） */
-export function listUploads(): Upload[] {
-  const rows = getDb()
-    .prepare(`SELECT ${UPLOAD_COLS} FROM uploads ORDER BY uploaded_at DESC`)
-    .all() as UploadRow[]
-  return rows.map(mapUpload)
-}
-
-/** 取单条上传记录 */
-export function getUpload(id: string): Upload | null {
-  const row = getDb()
-    .prepare(`SELECT ${UPLOAD_COLS} FROM uploads WHERE id = ?`)
-    .get(id) as UploadRow | undefined
-  return row ? mapUpload(row) : null
-}
-
 /**
- * 分页取某个上传的行数据。
- * 分页在数据库层完成（LIMIT/OFFSET），避免一次性把大表读进内存。
+ * 删除公告。
+ * 附件记录由外键级联删除，但磁盘文件需调用方先取出文件名再清理，
+ * 因此这里返回该公告的全部存储文件名。
  */
-export function getUploadPage(
-  id: string,
-  page = 1,
-  pageSize = 20
-): UploadPage | null {
-  const upload = getUpload(id)
-  if (!upload) return null
-
-  const size = Math.max(1, Math.min(pageSize, 200))
-  const totalRows = upload.rowCount
-  const totalPages = Math.max(1, Math.ceil(totalRows / size))
-  const current = Math.min(Math.max(1, page), totalPages)
-
-  const rows = getDb()
-    .prepare(
-      `SELECT row_index, cells FROM upload_rows
-        WHERE upload_id = ? ORDER BY row_index LIMIT ? OFFSET ?`
-    )
-    .all(id, size, (current - 1) * size) as {
-    row_index: number
-    cells: string
-  }[]
-
-  return {
-    upload,
-    rows: rows.map((r) => {
-      let cells: string[] = []
-      try {
-        const parsed = JSON.parse(r.cells)
-        if (Array.isArray(parsed)) cells = parsed.map(String)
-      } catch {
-        // 单行解析失败时以空行占位，不中断整页
-      }
-      return { rowIndex: r.row_index, cells }
-    }),
-    page: current,
-    pageSize: size,
-    totalRows,
-    totalPages,
-  }
-}
-
-/** 保存一次上传（记录 + 行数据），事务保证原子性 */
-export function createUpload(input: {
-  id: string
-  title: string
-  fileName: string
-  storedName: string
-  sheetName: string
-  columns: string[]
-  rows: string[][]
-  sizeBytes: number
-}): void {
+export function deleteAnnouncement(id: string): string[] {
   const db = getDb()
-  const insertUpload = db.prepare(
-    `INSERT INTO uploads
-       (id, title, file_name, stored_name, sheet_name,
-        row_count, col_count, columns, size_bytes)
-     VALUES (@id, @title, @fileName, @storedName, @sheetName,
-             @rowCount, @colCount, @columns, @sizeBytes)`
-  )
-  const insertRow = db.prepare(
-    'INSERT INTO upload_rows (upload_id, row_index, cells) VALUES (?, ?, ?)'
-  )
-
-  const tx = db.transaction(() => {
-    insertUpload.run({
-      id: input.id,
-      title: input.title,
-      fileName: input.fileName,
-      storedName: input.storedName,
-      sheetName: input.sheetName,
-      rowCount: input.rows.length,
-      colCount: input.columns.length,
-      columns: JSON.stringify(input.columns),
-      sizeBytes: input.sizeBytes,
-    })
-    input.rows.forEach((cells, i) => {
-      insertRow.run(input.id, i + 1, JSON.stringify(cells))
-    })
-  })
-  tx()
-}
-
-/** 删除上传记录（行数据由外键级联删除）；返回存储文件名以便删除原件 */
-export function deleteUpload(id: string): string | null {
-  const upload = getUpload(id)
-  if (!upload) return null
-  getDb().prepare('DELETE FROM uploads WHERE id = ?').run(id)
-  return upload.storedName
+  const atts = db
+    .prepare('SELECT stored_name FROM attachments WHERE announcement_id = ?')
+    .all(id) as { stored_name: string }[]
+  db.prepare('DELETE FROM announcements WHERE id = ?').run(id)
+  return atts.map((a) => a.stored_name)
 }

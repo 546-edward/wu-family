@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation'
 const links = [
   { href: '/admin', label: '概览' },
   { href: '/admin/announcements', label: '公告管理' },
-  { href: '/admin/excel', label: 'Excel 管理' },
 ]
 
 /** 后台导航，当前页高亮 */

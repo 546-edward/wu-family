@@ -16,7 +16,7 @@
 >
 > - 接入 SQLite，公告改为数据库存储，可在后台在线发布
 > - 新增管理员登录（单账号）
-> - 新增 Excel 上传与分页展示
+> - 公告支持随附附件（文档、表格、图片等）
 >
 > **代价**：网站不再能纯静态托管，部署时需 Node 服务常驻。
 > 第 2 章、第 4 章已相应更新。V1 预留的数据出口层接缝（5.3）
@@ -66,7 +66,7 @@
 |---|---|
 | 管理员登录 | 单账号，签名 Cookie 会话，密码 bcrypt 哈希存储 |
 | 公告在线发布 | SQLite 存储，后台可新建 / 编辑 / 置顶 / 删除，前台即时生效 |
-| Excel 上传与展示 | 后台：传 .xlsx → 解析为通用表格 → 分页 + 行展开展示 |
+| 公告附件 | 发布公告时可上传多个附件；图片前台内联预览，其余提供下载 |
 
 ### 2.2 仍不做（保持范围可控）
 
@@ -76,7 +76,7 @@
 | 账号注册 / 找回密码 | 密码由环境变量配置，运维层面处理即可 |
 | 世系树的在线编辑 | 世系属低频变更且结构敏感，仍由改数据文件维护 |
 | 相册后台管理 | 同上；图片替换频率低 |
-| Excel 导入成员/世系 | 本次只做通用表格展示，不做字段映射与合并去重 |
+| 附件内容解析 | 附件只做上传与下载/预览，不解析其内容（如把 Excel 导入成员） |
 | 活动报名 | 涉及名额、审核、通知，属于独立子系统 |
 | 财务与份子钱台账 | 涉及真实资金与审批流，风险高，应单独立项 |
 | 成员名录独立页 | 信息已由世系树覆盖，避免重复 |
@@ -166,7 +166,6 @@ export const family = {
 | 语言 | TypeScript | 5.9 |
 | 样式 | Tailwind CSS（CSS-first 配置） | 4.3 |
 | 数据库 | SQLite（better-sqlite3，同步 API） | 13 |
-| Excel 解析 | exceljs | 4.4 |
 | 密码哈希 | bcryptjs | 3 |
 | 包管理 | npm | 随 Node |
 | 运行时 | Node.js | v22（本机已验证） |
@@ -277,12 +276,12 @@ src/content/
 └── albums.ts          相册（Album[]）
 ```
 
-公告与 Excel 改由 SQLite 存储，运行时位于 `data/`（已 gitignore）：
+公告与附件元信息改由 SQLite 存储，运行时位于 `data/`（已 gitignore）：
 
 ```
 data/
 ├── wufamily.db        SQLite 数据库
-└── uploads/           上传的 Excel 原件（非公开目录）
+└── uploads/           公告附件原件（非公开目录）
 ```
 
 **数据表**：
@@ -291,14 +290,18 @@ data/
 |---|---|---|
 | `users` | 管理员（当前单账号，已预留多账号） | `username`、`password_hash` |
 | `announcements` | 公告 | `id`、`title`、`content`、`author_name`、`published_at`、`is_pinned` |
-| `uploads` | Excel 上传记录 | `id`、`title`、`file_name`、`stored_name`、`sheet_name`、`row_count`、`col_count`、`columns`(JSON) |
-| `upload_rows` | Excel 行数据 | `upload_id`、`row_index`、`cells`(JSON) |
+| `attachments` | 公告附件 | `id`、`announcement_id`、`file_name`、`stored_name`、`mime_type`、`size_bytes` |
 
-`upload_rows` 按行存储而非整表存一个 JSON：这样分页可用 SQL 的
-`LIMIT/OFFSET` 完成，不必把整表读进内存再切片。
+`attachments.announcement_id` 外键指向 `announcements.id` 并带
+`ON DELETE CASCADE`：删除公告时附件记录自动清理，磁盘文件由
+应用层在删除时一并删掉。
 
-首次启动会自动建表，并在公告表为空时导入 `announcements.ts` 的既有内容，
-保证升级后网站不会变空。
+首次启动会自动建表，并执行以下初始化：
+
+1. 公告表为空时导入 `announcements.ts` 的既有内容，保证升级后网站不变空
+2. 删除早期版本遗留的 `uploads` / `upload_rows` 表（若其有数据则先导出
+   到 `data/legacy-backup/uploads.json`，不静默丢失）
+3. 清理孤儿附件记录（公告已删但附件残留）与对应磁盘文件
 
 ### 5.3 数据出口层
 
@@ -408,7 +411,7 @@ export function getMilestones(): Milestone[]
 | 角色 | 可读 | 可写 |
 |---|---|---|
 | 访客（无需登录） | 全部展示内容 | 无 |
-| 管理员 | 展示内容 + 后台 | 公告、Excel |
+| 管理员 | 展示内容 + 后台 | 公告、附件 |
 
 **原原则：展示内容默认对所有人开放，写入必须登录。**
 
@@ -428,22 +431,22 @@ export function getMilestones(): Milestone[]
 | 路径 | 内容 |
 |---|---|
 | `/admin/login` | 用户名 + 密码登录 |
-| `/admin` | 概览：公告总数 / 置顶数 / 表格数 / 表格总行数，快捷入口 |
+| `/admin` | 概览：公告总数 / 置顶数 / 附件总数，快捷入口 |
 | `/admin/announcements` | 公告列表：新建、编辑、置顶切换、删除 |
 | `/admin/announcements/new` | 新建公告表单 |
 | `/admin/announcements/[id]` | 编辑公告 |
-| `/admin/excel` | 上传表单 + 已上传表格列表 |
-| `/admin/excel/[id]` | 表格展示：分页 + 行展开 |
+| `/api/attachments/[id]` | 附件下载；图片为内联预览（非后台路由） |
 
-**公告表单字段**：标题、正文、署名、发布日期、是否置顶。
+**公告表单字段**：标题、正文、署名、发布日期、是否置顶、附件（可多选）。
 发布后前台首页与公告页立即生效（`revalidatePath` + 动态渲染）。
 
-**Excel 展示**：
+**公告附件**：
 
-- 分页：每页 20 行，页码写在 URL（`?page=N`），刷新与分享保持位置；
-  分页在 SQL 层完成，不把整表加载到浏览器
-- 行展开：点行右侧「展开」，以「字段 — 值」列出该行完整内容，
-  便于查看长文本列而不必横向滚动
+- 表单底部可选择文件（可多选），随公告一起提交
+- 编辑时已有附件单独列出，可逐个删除（即时生效），也可继续追加
+- 前台详情页：图片附件内联展示大图；其余格式列为下载项
+- 附件存放在非公开目录 `data/uploads/`，**不经静态服务直接暴露**；
+  下载经 `/api/attachments/[id]` 校验后读取
 
 ### 6.8 鉴权
 
@@ -456,25 +459,35 @@ export function getMilestones(): Milestone[]
 - **防账号探测**：账号不存在时也执行一次 bcrypt 比较，避免通过响应时间判断账号是否存在
 - **失败提示**统一为「用户名或密码错误」，不区分账号错还是密码错
 
-### 6.9 Excel 上传限制
+### 6.9 附件上传限制
 
 | 项目 | 限制 |
 |---|---|
-| 格式 | 仅 `.xlsx`（不支持 `.xls` / `.csv`） |
-| 大小 | ≤ 5MB（`MAX_FILE_BYTES`） |
-| 行数 | ≤ 5000 行，超出截断（`MAX_ROWS`） |
-| 列数 | ≤ 60 列（`MAX_COLS`） |
-| 表头 | 首行；空表头以「列N」占位 |
-| 工作表 | 只取第一个 |
+| 格式 | doc / docx / pdf / txt / rtf / xls / xlsx / csv / ppt / pptx / jpg / jpeg / png / gif / webp / bmp / zip |
+| 大小 | 单个 ≤ 20MB（`MAX_FILE_BYTES`） |
+| 数量 | 每条公告 ≤ 10 个（`MAX_ATTACHMENTS`） |
 
-**安全处理**：只读取单元格的文本值，**不计算公式、不执行宏**；
-原件存入非公开目录 `data/uploads/`，文件名随机生成以防覆盖与路径穿越，
-不提供直接下载。
+**安全处理**：
 
-> 实现注意：Next.js 的 Server Action 请求体默认上限为 1MB，小于 5MB 的文件上限，
-> 会导致较大文件在校验前就被 413 拒绝。因此 `next.config.ts` 中已将
-> `experimental.serverActions.bodySizeLimit` 设为 `6mb`，业务上限仍由
-> `MAX_FILE_BYTES` 控制。
+- **白名单**扩展名而非黑名单，未列出的格式一律拒绝；
+  刻意排除 `.html` / `.svg` / `.js` 等可在浏览器中执行或嵌入脚本的格式，
+  避免上传后被当作网页渲染造成 XSS
+- 存储文件名**随机生成**，不使用用户提供的名字：既避免覆盖，
+  也避免路径穿越（如 `../../etc/passwd`）
+- 下载路由再次校验最终路径落在 `UPLOAD_DIR` 内（双保险）
+- 响应带 `X-Content-Type-Options: nosniff`；非图片一律以 `attachment` 返回，
+  不在浏览器内联渲染
+- 中文文件名按 RFC 5987 编码（`filename*=UTF-8''`），避免下载后乱码
+
+> 实现注意：
+>
+> 1. Next.js 的 Server Action 请求体默认上限为 1MB。`next.config.ts` 中已把
+>    `experimental.serverActions.bodySizeLimit` 放宽到 `6mb` 以容纳多附件；
+>    单文件上限仍由 `MAX_FILE_BYTES` 控制。
+> 2. 附件删除按钮位于公告表单内部，需加 `formNoValidate`，
+>    否则外层表单的 `required` 字段未填时浏览器会阻止提交。
+> 3. 该按钮**不能用 `name` 传参** —— Next.js 会把 Server Action 的 ID
+>    写到按钮的 `name` 属性上，覆盖业务参数；应改用同名 hidden input。
 
 ---
 
@@ -493,7 +506,7 @@ WuFamily/
 ├── eslint.config.mjs
 ├── data/                       运行时数据（已 gitignore）
 │   ├── wufamily.db             SQLite 数据库
-│   └── uploads/                Excel 原件（非公开）
+│   └── uploads/                公告附件原件（非公开）
 ├── public/
 │   └── photos/                 相册图片
 └── src/
@@ -515,12 +528,6 @@ WuFamily/
     │       │   ├── [id]/page.tsx     编辑
     │       │   ├── AnnouncementForm.tsx
     │       │   └── actions.ts        增删改与置顶
-    │       └── excel/
-    │           ├── page.tsx          上传 + 列表
-    │           ├── [id]/page.tsx     分页表格页
-    │           ├── UploadForm.tsx
-    │           ├── SheetTable.tsx    表格与分页控件
-    │           └── actions.ts        上传与删除
     ├── components/
     │   ├── Nav.tsx             导航栏
     │   ├── Footer.tsx          页脚
@@ -541,7 +548,8 @@ WuFamily/
     │   ├── data.ts             统一取数出口（服务端）
     │   ├── auth.ts             登录与会话
     │   ├── guard.ts            requireAuth() 鉴权守卫
-    │   └── excel.ts            Excel 解析与上传校验
+    │   ├── attachments.ts      附件服务端校验（白名单、随机命名）
+    │   └── attachments-shared.ts 附件共享常量与工具（客户端安全）
     └── types.ts
 ```
 
@@ -569,7 +577,7 @@ WuFamily/
 | 9 | 底色与导航调整 | 浅蓝底色、导航字体调大 | 对比度实测达标 |
 | 10 | 数据库与鉴权 | `db.ts`、`queries.ts`、`auth.ts`、`guard.ts`、`.env.example` | 首次启动自动建表、种子公告、创建管理员；未登录访问后台一律跳登录页 |
 | 11 | 公告后台 | `admin/announcements/*` | 新建/编辑/置顶/删除均生效，前台即时可见 |
-| 12 | Excel 上传与展示 | `excel.ts`、`admin/excel/*` | 上传可解析，分页与行展开正常，非法文件被拒 |
+| 12 | 公告附件 | `attachments*.ts`、`api/attachments/[id]` | 多格式上传成功；非法类型被拒；图片内联、其余下载；删公告连带清理文件 |
 | 13 | 数据出口层拆分 | `content.ts` / `data.ts` 分工 | 客户端组件不再引用数据库模块，构建成功 |
 | 14 | 文档同步 | README、PRD 更新 | 版本说明与部署变更已写明 |
 
@@ -636,7 +644,7 @@ style: 视觉打磨
 
 | 能力 | 预留方式 | 现状 |
 |---|---|---|
-| 内容在线编辑 | `data.ts` 为唯一数据出口 | ✅ 已用上：公告与 Excel 接入数据库，前台页面零修改 |
+| 内容在线编辑 | `data.ts` 为唯一数据出口 | ✅ 已用上：公告接入数据库，前台页面零修改 |
 | 成员增删改 | `Member` 含稳定 `id` | 未启用，`id` 仍可直接作主键 |
 | 登录与权限 | 预留 `User` 概念 | ✅ 已实现：`users` 表已建，当前单账号 |
 | 多家族复用 | 身份集中于 `family.ts` | 保持，可按域名加载不同配置 |
@@ -652,16 +660,13 @@ style: 视觉打磨
    适合多人共同维护时
 2. **世系/相册后台化** —— 把 `members.ts`、`albums.ts` 也迁入数据库，
    沿用本次的 `content.ts` / `queries.ts` 分工模式
-3. **Excel 导入成员** —— 当前只做通用表格展示；若要导入世系，
-   需新增字段映射、校验与合并去重逻辑
+3. **附件内容解析** —— 当前附件只做上传与下载/预览；若要用上传的
+   Excel 批量导入世系，需新增字段映射、校验与合并去重逻辑
 4. **操作审计** —— 记录谁在何时改了什么，多人维护时有必要
 5. **数据库备份脚本** —— 定时拷贝 `data/wufamily.db` 与 `data/uploads/`
 
 ### 10.3 已知技术债
 
-- `npm audit` 报告 `exceljs` 依赖的 `uuid` 有中危漏洞。该漏洞仅在
-  向 v3/v5/v6 UUID 生成函数传入 buffer 时触发，而 exceljs 仅用 v4，
-  不存在可利用路径。待 exceljs 上游升级依赖后自动消除。
 - 登录接口未做速率限制。若部署到公网，建议在反向代理层
   对 `/admin/login` 加限流，防暴力破解。
 

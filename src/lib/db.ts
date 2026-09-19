@@ -57,30 +57,94 @@ function migrate(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_ann_published
       ON announcements (is_pinned DESC, published_at DESC);
 
-    -- Excel 上传记录（表头与元信息）
-    CREATE TABLE IF NOT EXISTS uploads (
-      id          TEXT PRIMARY KEY,
-      title       TEXT NOT NULL,
-      file_name   TEXT NOT NULL,
-      stored_name TEXT NOT NULL,
-      sheet_name  TEXT NOT NULL,
-      row_count   INTEGER NOT NULL,
-      col_count   INTEGER NOT NULL,
-      columns     TEXT NOT NULL,   -- JSON 数组：表头
-      size_bytes  INTEGER NOT NULL,
-      uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
+    -- 公告附件（文档 / 表格 / 图片等）
+    CREATE TABLE IF NOT EXISTS attachments (
+      id              TEXT PRIMARY KEY,
+      announcement_id TEXT NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
+      file_name       TEXT NOT NULL,
+      stored_name     TEXT NOT NULL,
+      mime_type       TEXT NOT NULL,
+      size_bytes      INTEGER NOT NULL,
+      uploaded_at     TEXT NOT NULL DEFAULT (datetime('now'))
     );
-
-    -- Excel 行数据（每行一条，便于分页查询）
-    CREATE TABLE IF NOT EXISTS upload_rows (
-      id        INTEGER PRIMARY KEY AUTOINCREMENT,
-      upload_id TEXT NOT NULL REFERENCES uploads(id) ON DELETE CASCADE,
-      row_index INTEGER NOT NULL,
-      cells     TEXT NOT NULL    -- JSON 数组：该行单元格文本
-    );
-    CREATE INDEX IF NOT EXISTS idx_rows_upload
-      ON upload_rows (upload_id, row_index);
+    CREATE INDEX IF NOT EXISTS idx_att_ann
+      ON attachments (announcement_id, uploaded_at);
   `)
+
+  /*
+   * 历史迁移：早期版本把「Excel 管理」做成了独立模块（uploads / upload_rows），
+   * 后改为「公告附件」。这里把废弃表删掉，避免旧库残留。
+   * 若旧表仍有数据，先备份到 JSON 再删除，以免误删。
+   */
+  dropLegacyExcelTables(db)
+
+  /*
+   * 清理孤儿附件：公告已被删除、但附件记录尚存的情况。
+   *
+   * 正常情况下外键的 ON DELETE CASCADE 会处理；但若有人直接改库、
+   * 或早期版本遗留，就会产生脏数据。启动时掃一遍并删除对应磁盘文件。
+   */
+  cleanupOrphanAttachments(db)
+}
+
+/** 清理孤儿附件记录与对应磁盘文件 */
+function cleanupOrphanAttachments(db: Database.Database) {
+  const orphans = db
+    .prepare(
+      `SELECT a.id, a.stored_name FROM attachments a
+        LEFT JOIN announcements n ON a.announcement_id = n.id
+        WHERE n.id IS NULL`
+    )
+    .all() as { id: string; stored_name: string }[]
+  if (orphans.length === 0) return
+
+  for (const o of orphans) {
+    // 路径校验：确保只删 UPLOAD_DIR 之内的文件
+    const target = path.resolve(UPLOAD_DIR, o.stored_name)
+    if (target.startsWith(path.resolve(UPLOAD_DIR) + path.sep)) {
+      try {
+        fs.unlinkSync(target)
+      } catch {
+        // 文件已不存在则忽略
+      }
+    }
+  }
+  db.prepare(
+    `DELETE FROM attachments WHERE announcement_id NOT IN
+       (SELECT id FROM announcements)`
+  ).run()
+
+  console.log(`[WuFamily] 已清理 ${orphans.length} 个孤儿附件`)
+}
+
+function dropLegacyExcelTables(db: Database.Database) {
+  const exists = (name: string) =>
+    Boolean(
+      db
+        .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?")
+        .get(name)
+    )
+
+  if (!exists('uploads')) return
+
+  const { count } = db.prepare('SELECT COUNT(*) AS count FROM uploads').get() as {
+    count: number
+  }
+  if (count > 0) {
+    // 有数据则导出备份文件，不静默丢失
+    const backupDir = path.join(DATA_DIR, 'legacy-backup')
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true })
+    const rows = db.prepare('SELECT * FROM uploads').all()
+    fs.writeFileSync(
+      path.join(backupDir, 'uploads.json'),
+      JSON.stringify(rows, null, 2)
+    )
+    console.warn(
+      `[WuFamily] 检测到旧版 Excel 数据 ${count} 条，已备份到 data/legacy-backup/uploads.json`
+    )
+  }
+
+  db.exec('DROP TABLE IF EXISTS upload_rows; DROP TABLE IF EXISTS uploads;')
 }
 
 /**

@@ -1,17 +1,20 @@
 import Link from 'next/link'
 import { requireAuth } from '@/lib/guard'
-import { listAnnouncements, listUploads } from '@/lib/queries'
+import { listAnnouncements } from '@/lib/queries'
 
 /**
- * 后台概览：公告与 Excel 的基本统计，附快捷入口。
+ * 后台概览：公告与附件的基本统计，附快捷入口。
  */
 export default async function AdminHomePage() {
   await requireAuth()
 
   const announcements = listAnnouncements()
-  const uploads = listUploads()
 
   const pinned = announcements.filter((a) => a.isPinned).length
+  const attachmentCount = announcements.reduce(
+    (sum, a) => sum + (a.attachments?.length ?? 0),
+    0
+  )
   const latest = announcements[0]
 
   return (
@@ -20,14 +23,10 @@ export default async function AdminHomePage() {
         <h2 className="font-title mb-4 text-xl tracking-wider text-brand-primary">
           概览
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-3">
           <Stat label="公告总数" value={String(announcements.length)} />
           <Stat label="其中置顶" value={String(pinned)} />
-          <Stat label="Excel 表格" value={String(uploads.length)} />
-          <Stat
-            label="表格总行数"
-            value={String(uploads.reduce((s, u) => s + u.rowCount, 0))}
-          />
+          <Stat label="附件总数" value={String(attachmentCount)} />
         </div>
       </section>
 
@@ -43,12 +42,15 @@ export default async function AdminHomePage() {
             发布新公告
           </Link>
           <Link
-            href="/admin/excel"
+            href="/admin/announcements"
             className="rounded-sm border border-brand-accent/40 px-4 py-2.5 text-[15px] text-brand-ink/80 transition-colors hover:border-brand-primary hover:text-brand-primary"
           >
-            上传 Excel
+            管理公告与附件
           </Link>
         </div>
+        <p className="mt-3 text-sm text-brand-ink/55">
+          发布公告时可一并上传附件（文档、表格、图片等）。
+        </p>
       </section>
 
       {latest && (
@@ -67,6 +69,9 @@ export default async function AdminHomePage() {
             </p>
             <p className="mt-1.5 text-sm text-brand-ink/50">
               {latest.authorName} · {latest.publishedAt}
+              {latest.attachments && latest.attachments.length > 0
+                ? ` · ${latest.attachments.length} 个附件`
+                : ''}
             </p>
           </div>
         </section>

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getAnnouncement, getAnnouncements } from '@/lib/data'
+import { formatSize, isImage } from '@/lib/attachments-shared'
 
 /** 公告实时来自数据库，详情页同样需要动态渲染 */
 export const dynamic = 'force-dynamic'
@@ -79,6 +80,74 @@ export default async function AnnouncementDetailPage({
         {announcement.content}
       </div>
 
+      {/* 附件：图片直接嵌入展示，其余提供下载 */}
+      {announcement.attachments && announcement.attachments.length > 0 && (
+        <section className="mt-10">
+          <h2 className="font-title mb-4 border-b border-brand-accent/25 pb-2 text-lg tracking-wider text-brand-primary">
+            附件（{announcement.attachments.length}）
+          </h2>
+
+          {/* 图片附件：大图直接展示 */}
+          <div className="space-y-4">
+            {announcement.attachments
+              .filter((a) => isImage(a.mimeType))
+              .map((a) => (
+                <figure key={a.id}>
+                  <a
+                    href={`/api/attachments/${encodeURIComponent(a.id)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/attachments/${encodeURIComponent(a.id)}`}
+                      alt={a.fileName}
+                      className="max-h-[32rem] w-auto max-w-full rounded-sm border border-brand-accent/30"
+                    />
+                  </a>
+                  <figcaption className="mt-2 text-xs text-brand-ink/50">
+                    {a.fileName} · {formatSize(a.sizeBytes)}
+                  </figcaption>
+                </figure>
+              ))}
+          </div>
+
+          {/* 非图片附件：下载列表 */}
+          {announcement.attachments.some((a) => !isImage(a.mimeType)) && (
+            <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+              {announcement.attachments
+                .filter((a) => !isImage(a.mimeType))
+                .map((a) => (
+                  <li
+                    key={a.id}
+                    className="card-cn flex items-center gap-3 rounded-sm p-3"
+                  >
+                    <span
+                      aria-hidden
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-sm border border-brand-accent/30 bg-brand-accent/5 text-[10px] font-medium text-brand-accent"
+                    >
+                      {fileBadge(a.fileName)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <a
+                        href={`/api/attachments/${encodeURIComponent(a.id)}`}
+                        className="block truncate text-sm text-brand-primary underline-offset-4 hover:underline"
+                        title={a.fileName}
+                      >
+                        {a.fileName}
+                      </a>
+                      <p className="mt-0.5 text-xs text-brand-ink/45">
+                        {formatSize(a.sizeBytes)} · 点击下载
+                      </p>
+                    </div>
+                  </li>
+                ))}
+            </ul>
+          )}
+        </section>
+      )}
+
       <footer className="mt-10 border-t border-brand-accent/25 pt-6">
         <nav
           aria-label="上下篇导航"
@@ -122,4 +191,11 @@ export default async function AnnouncementDetailPage({
       </footer>
     </article>
   )
+}
+
+/** 从文件名取出扩展名作为角标文字 */
+function fileBadge(fileName: string): string {
+  const dot = fileName.lastIndexOf('.')
+  if (dot < 0 || dot === fileName.length - 1) return '文件'
+  return fileName.slice(dot + 1).toUpperCase().slice(0, 5)
 }
