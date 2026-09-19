@@ -155,22 +155,26 @@ export default function AnnouncementForm({
           </div>
         )}
 
-        {/*
-          自定义上传按钮。
-
-          为什么不用 `sr-only` 隐藏 input：那会把 input 裁成 1×1 像素并加
-          clip-path。Chromium 下点 label 还能唤起选择器，但 **Firefox 与部分 Safari
-          会直接忽略这个点击**，表现为「按钮点了没反应」。
-
-          这里改用「透明覆盖」方案：input 仍占据真实尺寸，只是 opacity 为 0
-          且绝对定位盖在按钮上。它是**真实可点的元素**，鼠标直接点在 input 上，
-          不依赖 label 转发，各浏览器行为一致。
-        */}
-        <div className="relative inline-block">
-          <span
-            aria-hidden
-            className="rounded-sm border border-brand-primary/45 bg-brand-primary px-4 py-2 text-sm text-white"
-          >
+        {/**
+         * 附件上传控件。
+         *
+         * 经过几轮排查，这里采用最保守、兼容性最好的写法：
+         *
+         * 1. 用 `<label>` **包裹** `<input>`（而不是用 for/id 关联）。
+         *    包裹式关联不依赖 id 解析，兼容性比 for/id 更广。
+         * 2. input 不用 clip / sr-only / opacity:0 之类的隐藏技巧，
+         *    而是用**真实可见的原生控件**（只是加了主题样式）。
+         *    这样即使自定义按钮在某些浏览器/环境下失效，
+         *    原生控件本身一定能点。
+         * 3. 保留“添加附件”字样，但把它放在 label 里，
+         *    与原生按钮一起构成可点区域。
+         *
+         * 前面的教训：用 1×1 像素 + clip-path 隐藏 input（sr-only）时，
+         * Firefox / 部分 Safari 会忽略 label 的点击转发，
+         * 表现为“点按钮没反应”。不隐藏则无此问题。
+         */}
+        <label className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className="rounded-sm border border-brand-primary/45 bg-brand-primary px-4 py-2 text-sm text-white">
             + 添加附件
           </span>
 
@@ -180,15 +184,16 @@ export default function AnnouncementForm({
             type="file"
             multiple
             accept={ACCEPT_ATTR}
-            aria-label="添加附件"
             onChange={(e) => setPicked(Array.from(e.target.files ?? []))}
-            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            className="block w-full max-w-md cursor-pointer rounded-sm border border-brand-accent/40 bg-white/80 px-2 py-1.5 text-sm text-brand-ink/80 file:mr-2 file:cursor-pointer file:rounded-sm file:border-0 file:bg-brand-accent/15 file:px-2.5 file:py-1 file:text-sm file:text-brand-ink/80"
           />
-        </div>
 
-        <span className="ml-3 align-middle text-xs text-brand-ink/50">
-          {picked.length > 0 ? `已选择 ${picked.length} 个文件` : '尚未选择文件'}
-        </span>
+          <span className="text-xs text-brand-ink/50">
+            {picked.length > 0
+              ? `已选择 ${picked.length} 个文件`
+              : '尚未选择文件'}
+          </span>
+        </label>
         <p className="mt-1.5 text-xs text-brand-ink/45">
           支持 {ALLOWED_LABEL}。图片附件在前台可直接预览，其余格式点击下载。
         </p>

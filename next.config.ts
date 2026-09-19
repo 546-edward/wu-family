@@ -29,6 +29,24 @@ const nextConfig: NextConfig = {
     },
   },
   /**
+   * 后台页面禁用缓存。
+   *
+   * 原因：后台是操作界面，若浏览器缓存了旧的 HTML/JS，
+   * 会出现“改了却没生效”的假象（例如按钮行为不一致）。
+   * 前台展示页不在此列，仍可正常缓存。
+   */
+  async headers() {
+    return [
+      {
+        source: '/admin/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, must-revalidate' },
+        ],
+      },
+    ]
+  },
+
+  /**
    * 不在构建时生成 AGENTS.md / CLAUDE.md，
    * 保持仓库文件与 PRD 第 7 章的目录结构一致。
    */
