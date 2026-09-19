@@ -33,7 +33,7 @@ const MAX_AGE_SECONDS = 60 * 60 * 24 * 7
  * 若确实以 HTTP 局域网方式部署，显式设 COOKIE_SECURE=false 关闭。
  * 一旦配上 HTTPS，就应改回 true（或不设，用默认值）。
  */
-function useSecureCookie(): boolean {
+function shouldUseSecureCookie(): boolean {
   const flag = process.env.COOKIE_SECURE
   if (flag === 'false') return false
   if (flag === 'true') return true
@@ -109,7 +109,7 @@ export async function login(
   store.set(COOKIE_NAME, createToken(row.username), {
     httpOnly: true,
     sameSite: 'lax',
-    secure: useSecureCookie(),
+    secure: shouldUseSecureCookie(),
     path: '/',
     maxAge: MAX_AGE_SECONDS,
   })
