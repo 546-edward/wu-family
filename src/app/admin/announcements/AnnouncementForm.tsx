@@ -155,16 +155,35 @@ export default function AnnouncementForm({
           </div>
         )}
 
-        <input
-          name="attachments"
-          type="file"
-          multiple
-          accept={ACCEPT_ATTR}
-          onChange={(e) =>
-            setPicked(Array.from(e.target.files ?? []))
-          }
-          className="w-full cursor-pointer rounded-sm border border-brand-accent/35 bg-white/80 px-3 py-2.5 text-[15px] file:mr-3 file:cursor-pointer file:rounded-sm file:border-0 file:bg-brand-primary file:px-3 file:py-1.5 file:text-sm file:text-white"
-        />
+        {/*
+          自定义上传按钮：原生的 <input type=file> 在不同浏览器里外观不一，
+          且默认按钮文案是「选择文件」，与「添加附件」不一致，也不明显可点。
+          这里用 <label> 包裹隐藏的 input，做成一个醒目的按钮，
+          点击 label 即可唤起文件选择器（原生行为，无需 JS）。
+        */}
+        <div className="flex flex-wrap items-center gap-3">
+          <label
+            htmlFor="attachments"
+            className="cursor-pointer rounded-sm border border-brand-primary/45 bg-brand-primary px-4 py-2 text-sm text-white transition-opacity hover:opacity-90"
+          >
+            + 添加附件
+          </label>
+          <span className="text-xs text-brand-ink/50">
+            {picked.length > 0
+              ? `已选择 ${picked.length} 个文件`
+              : '尚未选择文件'}
+          </span>
+
+          <input
+            id="attachments"
+            name="attachments"
+            type="file"
+            multiple
+            accept={ACCEPT_ATTR}
+            onChange={(e) => setPicked(Array.from(e.target.files ?? []))}
+            className="sr-only"
+          />
+        </div>
         <p className="mt-1.5 text-xs text-brand-ink/45">
           支持 {ALLOWED_LABEL}。图片附件在前台可直接预览，其余格式点击下载。
         </p>
@@ -184,6 +203,23 @@ export default function AnnouncementForm({
               </li>
             ))}
           </ul>
+        )}
+
+        {/* 选错了可清空重选（仅清空待上传列表，不影响已保存的附件） */}
+        {picked.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              setPicked([])
+              const el = document.getElementById(
+                'attachments'
+              ) as HTMLInputElement | null
+              if (el) el.value = ''
+            }}
+            className="mt-2 text-xs text-brand-ink/55 underline-offset-4 hover:text-brand-primary hover:underline"
+          >
+            清空已选
+          </button>
         )}
 
         {oversize.length > 0 && (
